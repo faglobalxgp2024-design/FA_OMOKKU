@@ -12,7 +12,11 @@
   const AI = 2;
   const EMPTY = 0;
   const STAR_POINTS = [[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]];
-  const RANKS = ['10k','9k','8k','7k','6k','5k','4k','3k','2k','1k','1d','2d','3d','4d','5d','6d','7d','8d','9d'];
+  const RANKS = ['1 Grade','2 Grade','3 Grade','4 Grade','5 Grade','6 Grade','7 Grade','8 Grade','9 Grade','10 Grade'];
+  const EARLY_GRADE_WIN_STEP = 5;
+  const HARD_GRADE_START_INDEX = 5;
+  const GRADE_POINT_STEP = 5;
+  const MAX_GRADE_SCORE = (RANKS.length - 1) * GRADE_POINT_STEP;
   const DEFAULT_AVATARS = ['🐻','🐼','🦊','🐯','🐨','🐶','🐱','🐹'];
 
   const FirebaseLeaderboardAdapter = {
@@ -95,6 +99,7 @@
     totalWins: 0,
     totalLosses: 0,
     totalGames: 0,
+    gradeScore: 0,
     review: [],
     reviewIndex: 0,
     soundsReady: false,
@@ -145,7 +150,8 @@
       bestStreak: state.bestStreak,
       totalWins: state.totalWins,
       totalLosses: state.totalLosses,
-      totalGames: state.totalGames
+      totalGames: state.totalGames,
+      gradeScore: state.gradeScore
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     if (state.profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile));
@@ -166,7 +172,7 @@
     const seen = new Set();
     return (Array.isArray(entries) ? entries : []).filter(v => {
       if (!v || !v.id || !v.nickname) return false;
-      if (Number(v.totalGames || 0) <= 0) return false;
+      if (Number(v.totalWins || 0) <= 0) return false;
       const name = String(v.nickname || '').trim();
       if (!name) return false;
       if (/^player\s*\d+$/i.test(name)) return false;
@@ -204,10 +210,11 @@
   }
 
   function compareLeaderboard(a, b) {
+    if ((b.totalWins || 0) !== (a.totalWins || 0)) return (b.totalWins || 0) - (a.totalWins || 0);
+    if ((a.totalLosses || 0) !== (b.totalLosses || 0)) return (a.totalLosses || 0) - (b.totalLosses || 0);
     const ra = rankIndex(a.rank);
     const rb = rankIndex(b.rank);
     if (ra !== rb) return rb - ra;
-    if ((b.totalWins || 0) !== (a.totalWins || 0)) return (b.totalWins || 0) - (a.totalWins || 0);
     if ((b.bestStreak || 0) !== (a.bestStreak || 0)) return (b.bestStreak || 0) - (a.bestStreak || 0);
     if ((b.totalGames || 0) !== (a.totalGames || 0)) return (b.totalGames || 0) - (a.totalGames || 0);
     return String(a.nickname || '').localeCompare(String(b.nickname || ''));
@@ -218,19 +225,50 @@
     return idx < 0 ? 0 : idx;
   }
 
-  function getRankFromWins(wins) {
-    const idx = Math.min(RANKS.length - 1, Math.floor(Math.max(0, wins) / 5));
+  function getLegacyGradeScoreFromWins(wins) {
+    const safeWins = Math.max(0, Number(wins) || 0);
+    return Math.min(MAX_GRADE_SCORE, safeWins);
+  }
+
+  function getRankFromScore(score) {
+    const safeScore = Math.max(0, Number(score) || 0);
+    const idx = Math.min(RANKS.length - 1, Math.floor(safeScore / GRADE_POINT_STEP));
     return RANKS[idx];
   }
 
-  function getNextRankProgress(wins) {
-    const rank = getRankFromWins(wins);
-    const idx = rankIndex(rank);
-    const currentBase = idx * 5;
-    const nextBase = Math.min((idx + 1) * 5, (RANKS.length - 1) * 5);
-    const current = wins - currentBase;
-    const need = idx >= RANKS.length - 1 ? 0 : Math.max(0, nextBase - wins);
-    return { rank, current, need, max: 5 };
+  function getRankFromWins(wins) {
+    return getRankFromScore(getLegacyGradeScoreFromWins(wins));
+  }
+
+  function getCurrentRankFromState() {
+    return getRankFromScore(state.gradeScore);
+  }
+
+  function getNextRankProgress(score) {
+    const safeScore = Math.max(0, Math.min(MAX_GRADE_SCORE, Number(score) || 0));
+    const idx = Math.min(RANKS.length - 1, Math.floor(safeScore / GRADE_POINT_STEP));
+    const currentBase = idx * GRADE_POINT_STEP;
+    const current = Math.max(0, safeScore - currentBase);
+    const need = idx >= RANKS.length - 1 ? 0 : Math.max(0, GRADE_POINT_STEP - current);
+    const penaltyActive = idx >= HARD_GRADE_START_INDEX && idx < RANKS.length - 1;
+    return { rank: RANKS[idx], current, need, max: GRADE_POINT_STEP, penaltyActive, isMax: idx >= RANKS.length - 1 };
+  }
+
+  function applyRankedResult(isWin) {
+    const current = Math.max(0, Math.min(MAX_GRADE_SCORE, Number(state.gradeScore) || 0));
+    const currentIndex = Math.min(RANKS.length - 1, Math.floor(current / GRADE_POINT_STEP));
+    if (currentIndex >= RANKS.length - 1) {
+      state.gradeScore = MAX_GRADE_SCORE;
+      return;
+    }
+    if (isWin) {
+      state.gradeScore = Math.min(MAX_GRADE_SCORE, current + 1);
+      return;
+    }
+    if (currentIndex >= HARD_GRADE_START_INDEX) {
+      const floor = currentIndex * GRADE_POINT_STEP;
+      state.gradeScore = Math.max(floor, current - 1);
+    }
   }
 
   function getAvatarBySeed(seed) {
@@ -250,10 +288,11 @@
       state.totalWins = saved.totalWins || 0;
       state.totalLosses = saved.totalLosses || 0;
       state.totalGames = saved.totalGames || 0;
+      state.gradeScore = saved.gradeScore != null ? Math.max(0, Math.min(MAX_GRADE_SCORE, Number(saved.gradeScore) || 0)) : getLegacyGradeScoreFromWins(saved.totalWins || 0);
     }
     if (profile && profile.id && profile.nickname) {
       state.profile = profile;
-      state.profile.rank = getRankFromWins(state.totalWins);
+      state.profile.rank = getCurrentRankFromState();
       state.profile.avatar = state.profile.avatar || getAvatarBySeed(profile.id);
     }
     state.leaderboardCache = getLocalLeaderboard().slice(0, 50);
@@ -295,7 +334,7 @@
                   <div class="fa-avatar self" id="fa-self-avatar"></div>
                   <div class="fa-player-meta">
                     <div class="fa-name" id="fa-player-name">Guest</div>
-                    <div class="fa-rank" id="fa-player-rank">10k</div>
+                    <div class="fa-rank" id="fa-player-rank">1 Grade</div>
                   </div>
                 </div>
                 <div class="fa-center-vs">
@@ -382,7 +421,7 @@
               <div class="fa-bottom">
                 <div class="fa-progress-box">
                   <div class="fa-progress-top">
-                    <span id="fa-progress-rank">10k</span>
+                    <span id="fa-progress-rank">1 Grade</span>
                     <span id="fa-progress-text">0 / 5 wins</span>
                   </div>
                   <div class="fa-progress-bar"><div id="fa-progress-fill"></div></div>
@@ -426,13 +465,13 @@
                 <div class="fa-info-line"><span>Rule</span><strong>Five in a row</strong></div>
                 <div class="fa-info-line"><span>Scale</span><strong id="fa-scale-line">Calm</strong></div>
                 <div class="fa-info-line"><span>Review</span><strong id="fa-review-line">Ready</strong></div>
-                <div class="fa-info-line"><span>Ranking</span><strong>Top 50 actual players</strong></div>
+                <div class="fa-info-line"><span>Ranking</span><strong>Wins first · fewer losses wins ties</strong></div>
               </div>
             </div>
 
             <div class="fa-panel lb">
               <div class="fa-panel-title">Top 50</div>
-              <div class="fa-panel-sub">Only profiles that actually played are listed.</div>
+              <div class="fa-panel-sub">Only players with at least 1 win are listed.</div>
               <div class="fa-leader-scroll" id="fa-leader-preview"></div>
             </div>
           </div>
@@ -443,7 +482,7 @@
             <div class="fa-modal-head">
               <div>
                 <div class="fa-modal-title">Leaderboard</div>
-                <div class="fa-modal-sub">Ranked by grade, wins, and best streak</div>
+                <div class="fa-modal-sub">Ranked by wins first, then fewer losses</div>
               </div>
               <button class="fa-btn" id="fa-close-leaderboard">Close</button>
             </div>
@@ -1021,7 +1060,8 @@
         id,
         nickname,
         avatar: getAvatarBySeed(id),
-        rank: getRankFromWins(state.totalWins),
+        rank: getCurrentRankFromState(),
+      gradeScore: state.gradeScore,
         provider: 'local'
       };
     } else {
@@ -1223,7 +1263,8 @@
         state.totalWins = 0;
         state.totalLosses = 0;
         state.totalGames = 0;
-        if (state.profile) state.profile.rank = getRankFromWins(0);
+        state.gradeScore = 0;
+        if (state.profile) state.profile.rank = getCurrentRankFromState();
         saveState();
         syncProfileToLeaderboard();
         syncUI();
@@ -1234,7 +1275,7 @@
   }
 
   function syncUI() {
-    const rank = getRankFromWins(state.totalWins);
+    const rank = getCurrentRankFromState();
     if (state.profile) state.profile.rank = rank;
 
     ui.playerName.textContent = state.profile ? state.profile.nickname : 'Guest';
@@ -1253,9 +1294,9 @@
     }
     ui.turnLabel.textContent = turnText;
 
-    const progress = getNextRankProgress(state.totalWins);
+    const progress = getNextRankProgress(state.gradeScore);
     ui.progressRank.textContent = progress.rank;
-    ui.progressText.textContent = progress.need === 0 ? 'Max rank reached' : `${progress.current} / ${progress.max} wins`;
+    ui.progressText.textContent = progress.need === 0 ? 'Max grade reached' : `${progress.current} / ${progress.max} points`;
     ui.progressFill.style.width = `${progress.need === 0 ? 100 : (progress.current / progress.max) * 100}%`;
 
     ui.totalWins.textContent = String(state.totalWins);
@@ -1270,7 +1311,7 @@
 
     if (state.profile) {
       ui.nickInput.value = state.profile.nickname || '';
-      ui.nickNote.textContent = 'Ready for local ranking and future Firebase sync.';
+      ui.nickNote.textContent = 'Ready for ranked play and Firebase sync.';
     } else {
       ui.nickInput.value = '';
     }
@@ -1301,7 +1342,8 @@
       totalWins: state.totalWins,
       totalLosses: state.totalLosses,
       totalGames: state.totalGames,
-      rank: getRankFromWins(state.totalWins),
+      rank: getCurrentRankFromState(),
+      gradeScore: state.gradeScore,
       streak: state.streak,
       bestStreak: state.bestStreak
     };
@@ -1340,7 +1382,7 @@
         <div class="fa-rank-pos ${mark.cls}">${mark.label}</div>
         <div class="fa-rank-main">
           <div class="fa-rank-name">${escapeHtml(p.nickname)}</div>
-          <div class="fa-rank-sub">${p.totalGames || 0} games · ${p.totalWins || 0} wins · best streak ${p.bestStreak || 0}</div>
+          <div class="fa-rank-sub">${p.totalGames || 0} games · ${p.totalWins || 0} wins · ${p.totalLosses || 0} losses · best streak ${p.bestStreak || 0}</div>
         </div>
         <div class="fa-rank-badge">${escapeHtml(p.rank || '10k')}</div>
       </div>
@@ -1352,7 +1394,7 @@
         <div class="fa-rank-pos">—</div>
         <div class="fa-rank-main">
           <div class="fa-rank-name">No ranked players yet</div>
-          <div class="fa-rank-sub">Only players who actually play a match appear here.</div>
+          <div class="fa-rank-sub">Only players with at least 1 win appear here.</div>
         </div>
         <div class="fa-rank-badge">Waiting</div>
       </div>
@@ -1462,16 +1504,18 @@
     let text = 'No winner this round.';
     if (winner === HUMAN) {
       state.totalWins += 1;
+      applyRankedResult(true);
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
       title = 'Victory!';
-      text = `Elegant finish. Rank ${getRankFromWins(state.totalWins)} · Streak ${state.streak}`;
+      text = `Elegant finish. ${getCurrentRankFromState()} · Streak ${state.streak}`;
       fanfare(true);
     } else if (winner === AI) {
       state.totalLosses += 1;
+      applyRankedResult(false);
       state.streak = 0;
       title = 'Defeat!';
-      text = `The AI held the line. Rank ${getRankFromWins(state.totalWins)} · Challenge ${getAiTitle()}`;
+      text = `The AI held the line. ${getCurrentRankFromState()} · Challenge ${getAiTitle()}`;
       fanfare(false);
     }
     saveState();
