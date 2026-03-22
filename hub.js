@@ -656,6 +656,7 @@
         position: absolute; inset: 0; display: grid; place-items: center;
         background: linear-gradient(180deg, rgba(6,10,18,.35), rgba(4,7,12,.56));
         padding: 18px;
+        z-index: 6;
       }
       .fa-stage.hidden, .fa-overlay.hidden, .fa-modal.hidden, .fa-floating-game-actions.hidden { display: none; }
       .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
@@ -857,6 +858,14 @@
         .fa-main { grid-template-columns: 1fr; }
       }
       @media (max-width: 740px) {
+        .fa-stage, .fa-overlay {
+          align-items: start;
+          overflow-y: auto;
+          padding: max(14px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+        }
+        .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
+          margin: auto 0;
+        }
         .fa-floating-game-actions { right: 12px; bottom: 12px; }
         .fa-floating-game-actions .fa-btn { min-width: 138px; padding: 11px 14px; }
         .mobile-only { display: inline-flex; }
@@ -1560,7 +1569,12 @@
     await renderLeaderboard();
     renderBoard(undefined, undefined, line);
     exitMobileFullscreen();
-    openStartScreen();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        openStartScreen();
+        syncUI();
+      });
+    });
   }
 
   function isFull(board) {
