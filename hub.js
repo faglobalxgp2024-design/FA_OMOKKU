@@ -1,4 +1,17 @@
 
+
+  function ordinalSuffix(n) {
+    const v = Math.abs(Number(n)) || 0;
+    const mod100 = v % 100;
+    if (mod100 >= 11 && mod100 <= 13) return 'th';
+    switch (v % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  }
+
 (() => {
   const APP_NAME = 'FA OMOK';
   const STORAGE_KEY = 'fa_omok_state_v2';
@@ -656,6 +669,7 @@
         position: absolute; inset: 0; display: grid; place-items: center;
         background: linear-gradient(180deg, rgba(6,10,18,.35), rgba(4,7,12,.56));
         padding: 18px;
+        z-index: 6;
       }
       .fa-stage.hidden, .fa-overlay.hidden, .fa-modal.hidden, .fa-floating-game-actions.hidden { display: none; }
       .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
@@ -857,6 +871,14 @@
         .fa-main { grid-template-columns: 1fr; }
       }
       @media (max-width: 740px) {
+        .fa-stage, .fa-overlay {
+          align-items: start;
+          overflow-y: auto;
+          padding: max(14px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+        }
+        .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
+          margin: auto 0;
+        }
         .fa-floating-game-actions { right: 12px; bottom: 12px; }
         .fa-floating-game-actions .fa-btn { min-width: 138px; padding: 11px 14px; }
         .mobile-only { display: inline-flex; }
@@ -1383,14 +1405,6 @@
     board = (Array.isArray(board) ? board : []).slice(0, 30);
     state.leaderboardCache = board;
 
-    const ordinal = n => {
-      const mod10 = n % 10;
-      const mod100 = n % 100;
-      if (mod10 === 1 && mod100 !== 11) return `${n}st`;
-      if (mod10 === 2 && mod100 !== 12) return `${n}nd`;
-      if (mod10 === 3 && mod100 !== 13) return `${n}rd`;
-      return `${n}th`;
-    };
     const rankMark = i => {
       if (i === 0) return { cls: 'crown-top', label: '👑' };
       if (i === 1) return { cls: 'crown-silver', label: '♕' };
@@ -1398,7 +1412,7 @@
       if (i === 3) return { cls: 'rank-four', label: '◆' };
       if (i === 4) return { cls: 'rank-five', label: '★' };
       if (i === 5) return { cls: 'rank-six', label: '✦' };
-      return { cls: '', label: ordinal(i + 1) };
+      return { cls: '', label: `${i + 1}${ordinalSuffix(i + 1)}` };
     };
 
     const buildRow = (p, i) => {
@@ -1568,7 +1582,12 @@
     await renderLeaderboard();
     renderBoard(undefined, undefined, line);
     exitMobileFullscreen();
-    openStartScreen();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        openStartScreen();
+        syncUI();
+      });
+    });
   }
 
   function isFull(board) {
