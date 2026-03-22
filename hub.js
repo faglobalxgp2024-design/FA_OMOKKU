@@ -16,19 +16,70 @@
   const DEFAULT_AVATARS = ['🐻','🐼','🦊','🐯','🐨','🐶','🐱','🐹'];
 
   const FirebaseLeaderboardAdapter = {
-    mode: 'local-ready',
-    async fetchTop(limit = 50) {
+  mode: 'firebase-ready',
+
+  async fetchTop(limit = 50) {
+    try {
+      const snapshot = await firebase
+        .database()
+        .ref('leaderboards/omok')
+        .once('value');
+
+      const data = snapshot.val();
+      if (!data) return [];
+
+      const list = Object.values(data).filter(Boolean);
+      return sanitizeLeaderboardEntries(list).slice(0, limit);
+    } catch (e) {
+      console.error('fetchTop firebase error:', e);
       return getLocalLeaderboard().slice(0, limit);
-    },
-    async saveEntry(entry) {
+    }
+  },
+
+  async saveEntry(entry) {
+    try {
+      if (!entry || !entry.id) return false;
+
+      await firebase
+        .database()
+        .ref('leaderboards/omok/' + entry.id)
+        .set(entry);
+
+      state.leaderboardCache = await this.fetchTop(50);
+      return true;
+    } catch (e) {
+      console.error('saveEntry firebase error:', e);
       upsertLocalLeaderboard(entry);
       return true;
-    },
-    async nameExists(nickname, excludeId) {
-      const lower = String(nickname || '').trim().toLowerCase();
-      return getLocalLeaderboard().some(v => String(v.nickname || '').trim().toLowerCase() === lower && v.id !== excludeId);
     }
-  };
+  },
+
+  async nameExists(nickname, excludeId) {
+    try {
+      const snapshot = await firebase
+        .database()
+        .ref('leaderboards/omok')
+        .once('value');
+
+      const data = snapshot.val();
+      if (!data) return false;
+
+      const lower = String(nickname || '').trim().toLowerCase();
+
+      return Object.values(data).some(v =>
+        String(v?.nickname || '').trim().toLowerCase() === lower &&
+        v?.id !== excludeId
+      );
+    } catch (e) {
+      console.error('nameExists firebase error:', e);
+      const lower = String(nickname || '').trim().toLowerCase();
+      return getLocalLeaderboard().some(v =>
+        String(v.nickname || '').trim().toLowerCase() === lower &&
+        v.id !== excludeId
+      );
+    }
+  }
+};
 
   const state = {
     profile: null,
