@@ -783,7 +783,11 @@
         background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.04)); font-weight: 900;
       }
       .fa-rank-pos.crown-top { background: linear-gradient(145deg, rgba(245,214,135,.96), rgba(160,121,42,.92)); color: #16181d; box-shadow: 0 10px 24px rgba(213,178,108,.28); }
-      .fa-rank-pos.crown-sub { background: linear-gradient(145deg, rgba(224,233,255,.92), rgba(125,141,182,.74)); color: #131722; box-shadow: 0 10px 24px rgba(120,138,188,.22); }
+      .fa-rank-pos.crown-silver { background: linear-gradient(145deg, rgba(231,237,246,.96), rgba(137,148,167,.86)); color: #131722; box-shadow: 0 10px 24px rgba(159,171,194,.24); }
+      .fa-rank-pos.crown-bronze { background: linear-gradient(145deg, rgba(223,174,136,.96), rgba(142,89,58,.9)); color: #1a1715; box-shadow: 0 10px 24px rgba(172,112,74,.24); }
+      .fa-rank-pos.rank-four { background: linear-gradient(145deg, rgba(157,232,221,.96), rgba(40,122,111,.88)); color: #10211f; box-shadow: 0 10px 24px rgba(78,176,162,.22); }
+      .fa-rank-pos.rank-five { background: linear-gradient(145deg, rgba(204,191,255,.96), rgba(98,82,170,.88)); color: #12111b; box-shadow: 0 10px 24px rgba(121,103,200,.22); }
+      .fa-rank-pos.rank-six { background: linear-gradient(145deg, rgba(255,209,231,.96), rgba(170,70,123,.88)); color: #1f1018; box-shadow: 0 10px 24px rgba(207,108,158,.22); }
       .fa-rank-main { min-width: 0; }
       .fa-rank-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .fa-rank-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
@@ -943,6 +947,7 @@
     ui.board.addEventListener('dblclick', e => e.preventDefault());
     ui.board.addEventListener('touchend', preventDoubleTapZoom, { passive: false });
     ui.nickInput.addEventListener('keydown', e => {
+      if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Enter') confirmLobbyProfile();
     });
     ui.leaderModal.addEventListener('click', e => {
@@ -1363,16 +1368,21 @@
   async function renderLeaderboard(full = false) {
     let board = [];
     try {
-      board = await state.remoteAdapter.fetchTop(50);
+      board = await state.remoteAdapter.fetchTop(30);
     } catch {
-      board = getLocalLeaderboard().slice(0, 50);
+      board = getLocalLeaderboard().slice(0, 30);
     }
+    board = (Array.isArray(board) ? board : []).slice(0, 30);
     state.leaderboardCache = board;
 
     const rankMark = i => {
-      if (i < 3) return { cls: 'crown-top', label: '👑' };
-      if (i < 6) return { cls: 'crown-sub', label: '♕' };
-      return { cls: '', label: String(i + 1) };
+      if (i === 0) return { cls: 'crown-top', label: '👑' };
+      if (i === 1) return { cls: 'crown-silver', label: '♕' };
+      if (i === 2) return { cls: 'crown-bronze', label: '♔' };
+      if (i === 3) return { cls: 'rank-four', label: '◆' };
+      if (i === 4) return { cls: 'rank-five', label: '★' };
+      if (i === 5) return { cls: 'rank-six', label: '✦' };
+      return { cls: '', label: `${i + 1}등` };
     };
 
     const buildRow = (p, i) => {
@@ -1417,6 +1427,18 @@
   }
 
   function onGlobalKey(e) {
+    const active = document.activeElement;
+    const typing = !!(
+      e.isComposing ||
+      e.keyCode === 229 ||
+      (active && (
+        active.tagName === 'INPUT' ||
+        active.tagName === 'TEXTAREA' ||
+        active.isContentEditable
+      ))
+    );
+    if (typing) return;
+
     if (e.key.toLowerCase() === 'l') {
       if (ui.leaderModal.classList.contains('hidden')) openLeaderboard();
       else closeLeaderboard();
