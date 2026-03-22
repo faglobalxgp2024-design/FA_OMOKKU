@@ -2078,7 +2078,7 @@
     if (state.profile) {
       openStartScreen();
       ui.nickInput.value = state.profile.nickname || '';
-      ui.nickNote.textContent = 'Update nickname before starting, or continue as is.';
+      ui.nickNote.textContent = 'It's your nickname.';
     } else {
       openStartScreen();
     }
