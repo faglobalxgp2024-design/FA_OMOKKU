@@ -375,7 +375,7 @@
                           <div class="fa-input-label">Nickname Locked</div>
                           <div class="fa-fixed-name" id="fa-fixed-name">Player</div>
                         </div>
-                        <div class="fa-mini-note" id="fa-nick-note"></div>
+                        <div class="fa-mini-note" id="fa-nick-note">This nickname will be used for ranking and future Firebase sync.</div>
                       </div>
                     </div>
                     <div class="fa-stage-actions" id="fa-lobby-confirm-actions">
@@ -383,7 +383,8 @@
                     </div>
                     <div class="fa-stage-actions hidden" id="fa-lobby-start-actions">
                       <button class="fa-btn primary big" id="fa-save-start">Game Start</button>
-                                          </div>
+                      <button class="fa-btn ghost big mobile-only" id="fa-mobile-fullscreen-btn">Play Fullscreen</button>
+                    </div>
                   </div>
                 </div>
 
@@ -437,7 +438,7 @@
           <div class="fa-right">
             <div class="fa-panel setup">
               <div class="fa-panel-title">Profile</div>
-              <div class="fa-panel-sub"></div>
+              <div class="fa-panel-sub">Leaderboard-ready profile for local play and Firebase sync.</div>
               <div class="fa-profile-inline">
                 <div class="fa-avatar self" id="fa-side-avatar"></div>
                 <div>
@@ -522,22 +523,24 @@
       .fa-bg {
         position: fixed; inset: 0;
         background:
-          radial-gradient(circle at 12% 14%, rgba(255,215,128,.24), transparent 22%),
-          radial-gradient(circle at 86% 10%, rgba(90,124,255,.18), transparent 24%),
-          radial-gradient(circle at 78% 82%, rgba(59,194,167,.10), transparent 20%),
-          radial-gradient(circle at 48% 38%, rgba(255,255,255,.035), transparent 40%),
-          linear-gradient(135deg, rgba(255,255,255,.025) 0%, transparent 28%, rgba(255,255,255,.018) 52%, transparent 76%),
-          linear-gradient(180deg, #0e1622 0%, #0a1019 34%, #070b12 68%, #04060a 100%);
+          radial-gradient(circle at 14% 16%, rgba(255,214,132,.24), transparent 22%),
+          radial-gradient(circle at 86% 12%, rgba(92,121,255,.22), transparent 24%),
+          radial-gradient(circle at 78% 82%, rgba(82,214,154,.12), transparent 22%),
+          radial-gradient(circle at 50% -6%, rgba(255,255,255,.08), transparent 26%),
+          linear-gradient(135deg, #0d1421 0%, #09101a 38%, #05070c 100%);
+        background-attachment: fixed;
         z-index: 0;
       }
       .fa-grid {
         position: fixed; inset: 0; pointer-events: none;
-        background-image:
-          linear-gradient(rgba(255,255,255,.024) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,.024) 1px, transparent 1px);
-        background-size: 34px 34px;
-        mask-image: radial-gradient(circle at center, rgba(0,0,0,.78), transparent 86%);
-        opacity: .9;
+        background:
+          radial-gradient(circle at 20% 18%, rgba(255,255,255,.08), transparent 10%),
+          radial-gradient(circle at 80% 22%, rgba(255,255,255,.06), transparent 12%),
+          linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+        background-size: auto, auto, 34px 34px, 34px 34px;
+        mask-image: radial-gradient(circle at center, rgba(0,0,0,.78), transparent 88%);
+        opacity: .92;
         z-index: 0;
       }
       .fa-topbar, .fa-main { position: relative; z-index: 1; }
@@ -561,11 +564,9 @@
         display: grid; grid-template-columns: minmax(0, 1.15fr) 380px; gap: 22px;
       }
       .fa-panel {
-        background:
-          linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.035)),
-          linear-gradient(135deg, rgba(214,180,109,.05), transparent 36%, rgba(95,120,255,.05) 100%);
-        border: 1px solid rgba(255,255,255,.11);
-        box-shadow: 0 28px 80px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.05);
+        background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.04));
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
         border-radius: 26px;
         backdrop-filter: blur(18px);
       }
@@ -627,19 +628,21 @@
         overflow: hidden;
         touch-action: manipulation;
         background:
-          linear-gradient(180deg, rgba(255,255,255,.034), rgba(255,255,255,0)),
+          linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0)),
           radial-gradient(circle at center, rgba(255,255,255,.06), transparent 68%),
-          radial-gradient(circle at 16% 14%, rgba(255,220,146,.07), transparent 20%),
-          radial-gradient(circle at 84% 18%, rgba(99,119,255,.06), transparent 20%),
-          linear-gradient(135deg, rgba(213,178,108,.08), rgba(255,255,255,0) 35%, rgba(88,109,255,.06) 100%);
+          radial-gradient(circle at 14% 12%, rgba(226,187,103,.08), transparent 22%),
+          radial-gradient(circle at 86% 18%, rgba(99,120,255,.10), transparent 24%),
+          linear-gradient(135deg, rgba(213,178,108,.07), rgba(255,255,255,0) 35%, rgba(88,109,255,.06) 100%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 30px 90px rgba(0,0,0,.28);
       }
       .fa-board-wrap::before {
         content: '';
         position: absolute; inset: 0;
         background:
-          radial-gradient(circle at 20% 15%, rgba(246,204,119,.08), transparent 18%),
-          radial-gradient(circle at 80% 20%, rgba(74,112,255,.08), transparent 18%),
-          radial-gradient(circle at 75% 85%, rgba(82,214,154,.08), transparent 18%);
+          radial-gradient(circle at 20% 15%, rgba(246,204,119,.09), transparent 18%),
+          radial-gradient(circle at 80% 20%, rgba(74,112,255,.09), transparent 18%),
+          radial-gradient(circle at 75% 85%, rgba(82,214,154,.08), transparent 18%),
+          linear-gradient(120deg, rgba(255,255,255,.03), transparent 30%, rgba(255,255,255,.02) 58%, transparent 78%);
         pointer-events: none;
       }
       #fa-board {
@@ -759,7 +762,6 @@
       .fa-btn.big { min-width: 180px; padding: 14px 20px; }
       .fa-panel-title { font-weight: 900; font-size: 18px; }
       .fa-panel-sub, .fa-mini-note { font-size: 13px; color: var(--muted); margin-top: 6px; }
-      #fa-nick-note, #fa-connection-note { display: none !important; }
       .fa-profile-inline {
         margin-top: 14px; display: flex; align-items: center; gap: 12px; padding: 12px 14px;
         background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 18px;
@@ -1046,7 +1048,7 @@
       state.lobbyConfirmed = true;
       if (ui.nickNote) ui.nickNote.textContent = 'Nickname is locked. You can start immediately.';
     } else if (ui.nickNote) {
-      ui.nickNote.textContent = '';
+      ui.nickNote.textContent = 'This nickname will be used for ranking and future Firebase sync.';
     }
   }
 
@@ -1095,7 +1097,7 @@
     updateLobbyProfileUI();
     syncLobbyActions();
     updateFullscreenButtons();
-    ui.nickNote.textContent = '';
+    ui.nickNote.textContent = 'Nickname locked. Press Game Start, or use Play Fullscreen on mobile.';
     syncLobbyActions();
     syncUI();
     return true;
@@ -1316,13 +1318,13 @@
     ui.bestTier.textContent = String(state.bestStreak);
     ui.scaleLine.textContent = getAiTitle();
     ui.reviewLine.textContent = state.review.length ? `${state.reviewIndex + 1} / ${state.review.length}` : 'Ready';
-    ui.connectionNote.textContent = '';
+    ui.connectionNote.textContent = state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected';
     syncLobbyActions();
     updateFullscreenButtons();
 
     if (state.profile) {
       ui.nickInput.value = state.profile.nickname || '';
-      ui.nickNote.textContent = '';
+      ui.nickNote.textContent = 'Ready for ranked play and Firebase sync.';
     } else {
       ui.nickInput.value = '';
     }
@@ -2084,7 +2086,7 @@
     if (state.profile) {
       openStartScreen();
       ui.nickInput.value = state.profile.nickname || '';
-      ui.nickNote.textContent = '';
+      ui.nickNote.textContent = 'Update nickname before starting, or continue as is.';
     } else {
       openStartScreen();
     }
