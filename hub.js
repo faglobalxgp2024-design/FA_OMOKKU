@@ -1310,7 +1310,7 @@
     ui.bestTier.textContent = String(state.bestStreak);
     ui.scaleLine.textContent = getAiTitle();
     ui.reviewLine.textContent = state.review.length ? `${state.reviewIndex + 1} / ${state.review.length}` : 'Ready';
-    ui.connectionNote.textContent = state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected';
+    ui.connectionNote.textContent = state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Online Leaderboard';
     syncLobbyActions();
     updateFullscreenButtons();
 
