@@ -523,20 +523,24 @@
       .fa-bg {
         position: fixed; inset: 0;
         background:
-          radial-gradient(circle at 12% 14%, rgba(246,204,119,.22), transparent 24%),
-          radial-gradient(circle at 84% 12%, rgba(96,124,255,.18), transparent 26%),
-          radial-gradient(circle at 74% 84%, rgba(82,214,154,.11), transparent 24%),
-          radial-gradient(circle at 50% 50%, rgba(255,255,255,.03), transparent 48%),
-          linear-gradient(180deg, #0a1018 0%, #090d14 36%, #05070c 100%);
+          radial-gradient(circle at 14% 16%, rgba(255,214,132,.24), transparent 22%),
+          radial-gradient(circle at 86% 12%, rgba(92,121,255,.22), transparent 24%),
+          radial-gradient(circle at 78% 82%, rgba(82,214,154,.12), transparent 22%),
+          radial-gradient(circle at 50% -6%, rgba(255,255,255,.08), transparent 26%),
+          linear-gradient(135deg, #0d1421 0%, #09101a 38%, #05070c 100%);
+        background-attachment: fixed;
         z-index: 0;
       }
       .fa-grid {
         position: fixed; inset: 0; pointer-events: none;
-        background-image:
-          linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-        background-size: 34px 34px;
-        mask-image: radial-gradient(circle at center, rgba(0,0,0,.7), transparent 85%);
+        background:
+          radial-gradient(circle at 20% 18%, rgba(255,255,255,.08), transparent 10%),
+          radial-gradient(circle at 80% 22%, rgba(255,255,255,.06), transparent 12%),
+          linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+        background-size: auto, auto, 34px 34px, 34px 34px;
+        mask-image: radial-gradient(circle at center, rgba(0,0,0,.78), transparent 88%);
+        opacity: .92;
         z-index: 0;
       }
       .fa-topbar, .fa-main { position: relative; z-index: 1; }
@@ -624,17 +628,21 @@
         overflow: hidden;
         touch-action: manipulation;
         background:
-          linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)),
-          radial-gradient(circle at center, rgba(255,255,255,.05), transparent 68%),
-          linear-gradient(135deg, rgba(213,178,108,.06), rgba(255,255,255,0) 35%, rgba(88,109,255,.05) 100%);
+          linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0)),
+          radial-gradient(circle at center, rgba(255,255,255,.06), transparent 68%),
+          radial-gradient(circle at 14% 12%, rgba(226,187,103,.08), transparent 22%),
+          radial-gradient(circle at 86% 18%, rgba(99,120,255,.10), transparent 24%),
+          linear-gradient(135deg, rgba(213,178,108,.07), rgba(255,255,255,0) 35%, rgba(88,109,255,.06) 100%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 30px 90px rgba(0,0,0,.28);
       }
       .fa-board-wrap::before {
         content: '';
         position: absolute; inset: 0;
         background:
-          radial-gradient(circle at 20% 15%, rgba(246,204,119,.08), transparent 18%),
-          radial-gradient(circle at 80% 20%, rgba(74,112,255,.08), transparent 18%),
-          radial-gradient(circle at 75% 85%, rgba(82,214,154,.08), transparent 18%);
+          radial-gradient(circle at 20% 15%, rgba(246,204,119,.09), transparent 18%),
+          radial-gradient(circle at 80% 20%, rgba(74,112,255,.09), transparent 18%),
+          radial-gradient(circle at 75% 85%, rgba(82,214,154,.08), transparent 18%),
+          linear-gradient(120deg, rgba(255,255,255,.03), transparent 30%, rgba(255,255,255,.02) 58%, transparent 78%);
         pointer-events: none;
       }
       #fa-board {
@@ -1310,7 +1318,7 @@
     ui.bestTier.textContent = String(state.bestStreak);
     ui.scaleLine.textContent = getAiTitle();
     ui.reviewLine.textContent = state.review.length ? `${state.reviewIndex + 1} / ${state.review.length}` : 'Ready';
-    ui.connectionNote.textContent = state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Online Leaderboard';
+    ui.connectionNote.textContent = state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected';
     syncLobbyActions();
     updateFullscreenButtons();
 
@@ -2078,7 +2086,7 @@
     if (state.profile) {
       openStartScreen();
       ui.nickInput.value = state.profile.nickname || '';
-      ui.nickNote.textContent = 'It's your nickname.';
+      ui.nickNote.textContent = 'Update nickname before starting, or continue as is.';
     } else {
       openStartScreen();
     }
