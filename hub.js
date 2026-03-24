@@ -1,5 +1,4 @@
 
-
   function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
@@ -124,7 +123,9 @@
     leaderboardCache: [],
     fullscreenRequested: false,
     lastResult: null,
-    lobbyConfirmed: false
+    lobbyConfirmed: false,
+    pendingHumanMove: null,
+    countdownActive: false
   };
 
   const ui = {};
@@ -423,6 +424,14 @@
                       <button class="fa-btn ghost" id="fa-overlay-lobby-btn">Lobby</button>
                     </div>
                   </div>
+                </div>
+
+                <div class="fa-place-action hidden" id="fa-place-action">
+                  <button class="fa-place-btn" id="fa-confirm-move-btn">Place Stone</button>
+                </div>
+
+                <div class="fa-countdown hidden" id="fa-countdown">
+                  <div class="fa-countdown-number" id="fa-countdown-number">3</div>
                 </div>
 
                 <div class="fa-floating-game-actions hidden" id="fa-floating-game-actions">
@@ -731,6 +740,39 @@
       }
       .fa-stage-actions.split .fa-btn { min-width: 140px; }
 
+      .fa-place-action {
+        position: absolute;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        z-index: 4;
+      }
+      .fa-place-action.hidden { display: none; }
+      .fa-place-btn {
+        appearance: none; border: 1px solid rgba(151,255,124,.42); outline: none;
+        min-width: 168px; height: 64px; padding: 0 28px;
+        border-radius: 999px; cursor: pointer;
+        background: radial-gradient(circle at 50% 20%, rgba(255,255,255,.22), transparent 34%), linear-gradient(180deg, #2f4f24 0%, #193114 50%, #0f200d 100%);
+        box-shadow: 0 14px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 0 3px rgba(110,199,75,.25);
+        color: #f5fff1; font-size: 26px; font-weight: 900; letter-spacing: .01em;
+      }
+      .fa-place-btn:active { transform: translateY(1px); }
+      .fa-countdown {
+        position: absolute; inset: 0; z-index: 7;
+        display: grid; place-items: center;
+        background: radial-gradient(circle at center, rgba(8,11,17,.24), rgba(5,7,12,.62));
+        pointer-events: none;
+      }
+      .fa-countdown.hidden { display: none; }
+      .fa-countdown-number {
+        min-width: 180px; padding: 22px 28px; text-align: center;
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(14,18,27,.9), rgba(10,13,20,.94));
+        border: 1px solid rgba(255,255,255,.10);
+        box-shadow: 0 24px 70px rgba(0,0,0,.46);
+        font-size: 64px; font-weight: 900; letter-spacing: .04em; color: #f6f7fb;
+      }
+
       .fa-floating-game-actions {
         position: absolute;
         right: 18px;
@@ -879,6 +921,9 @@
         .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
           margin: auto 0;
         }
+        .fa-place-action { bottom: max(14px, env(safe-area-inset-bottom)); }
+        .fa-place-btn { min-width: 150px; height: 58px; font-size: 22px; }
+        .fa-countdown-number { min-width: 150px; font-size: 54px; }
         .fa-floating-game-actions { right: 12px; bottom: 12px; }
         .fa-floating-game-actions .fa-btn { min-width: 138px; padding: 11px 14px; }
         .mobile-only { display: inline-flex; }
@@ -951,6 +996,10 @@
     ui.lobbyConfirmActions = root.querySelector('#fa-lobby-confirm-actions');
     ui.lobbyStartActions = root.querySelector('#fa-lobby-start-actions');
     ui.confirmProfileBtn = root.querySelector('#fa-confirm-profile-btn');
+    ui.placeAction = root.querySelector('#fa-place-action');
+    ui.confirmMoveBtn = root.querySelector('#fa-confirm-move-btn');
+    ui.countdown = root.querySelector('#fa-countdown');
+    ui.countdownNumber = root.querySelector('#fa-countdown-number');
     ui.floatingGameActions = root.querySelector('#fa-floating-game-actions');
     ui.floatingFullscreen = root.querySelector('#fa-floating-fullscreen');
     ui.floatingExitFullscreen = root.querySelector('#fa-floating-exit-fullscreen');
@@ -970,6 +1019,7 @@
     root.querySelector('#fa-back-lobby-btn').addEventListener('click', backToLobby);
     root.querySelector('#fa-confirm-cancel').addEventListener('click', closeConfirm);
     root.querySelector('#fa-mobile-fullscreen-btn').addEventListener('click', () => { requestMobileFullscreen(true); startGameFromLobby(); });
+    ui.confirmMoveBtn.addEventListener('click', confirmPendingMove);
     root.querySelector('#fa-floating-fullscreen').addEventListener('click', () => requestMobileFullscreen(true));
     root.querySelector('#fa-floating-exit-fullscreen').addEventListener('click', exitMobileFullscreen);
 
@@ -1003,6 +1053,10 @@
       state.audio = new AC();
       state.soundsReady = true;
     } catch {}
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   function hitSound(type = 'stone') {
@@ -1061,6 +1115,76 @@
     });
   }
 
+  function speakCountdownText(text) {
+    try {
+      if (!('speechSynthesis' in window)) return;
+      const utter = new SpeechSynthesisUtterance(String(text));
+      utter.lang = /^\d+$/.test(String(text)) ? 'en-US' : 'ko-KR';
+      utter.rate = 0.95;
+      utter.pitch = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    } catch {}
+  }
+
+  async function playCountdownStart() {
+    if (state.countdownActive) return false;
+    state.countdownActive = true;
+    if (ui.countdown) ui.countdown.classList.remove('hidden');
+    const sequence = ['3', '2', '1', 'Start!'];
+    for (const item of sequence) {
+      if (ui.countdownNumber) ui.countdownNumber.textContent = item;
+      if (item === 'Start!') {
+        speakCountdownText('게임 스타트');
+        hitSound('ui');
+        await sleep(750);
+      } else {
+        speakCountdownText(item);
+        hitSound('ui');
+        await sleep(800);
+      }
+    }
+    if (ui.countdown) ui.countdown.classList.add('hidden');
+    state.countdownActive = false;
+    return true;
+  }
+
+  function clearPendingMove(shouldRender = true) {
+    state.pendingHumanMove = null;
+    if (shouldRender) renderBoard();
+  }
+
+  function updatePlaceButton() {
+    if (!ui.placeAction) return;
+    const show = !!(state.phase === 'playing' && state.started && !state.gameOver && !state.paused && state.turn === HUMAN && state.pendingHumanMove);
+    ui.placeAction.classList.toggle('hidden', !show);
+  }
+
+  function confirmPendingMove() {
+    const pos = state.pendingHumanMove;
+    if (!pos) return;
+    if (!state.profile) {
+      openStartScreen();
+      return;
+    }
+    if (!state.started || state.phase !== 'playing' || state.turn !== HUMAN || state.gameOver || state.pendingLock || state.paused) return;
+    if (state.board[pos.y][pos.x] !== EMPTY) {
+      clearPendingMove();
+      updatePlaceButton();
+      return;
+    }
+
+    placeMove(pos.x, pos.y, HUMAN);
+    clearPendingMove(false);
+    updatePlaceButton();
+    if (state.gameOver) return;
+
+    state.turn = AI;
+    syncUI();
+    state.pendingLock = true;
+    setTimeout(aiTurn, 150 + Math.min(350, state.streak * 35));
+  }
+
   function updateLobbyProfileUI() {
     const locked = !!(state.profile && state.profile.nickname);
     if (ui.nicknameEditor) ui.nicknameEditor.classList.toggle('hidden', locked);
@@ -1114,10 +1238,12 @@
 
     state.lobbyConfirmed = true;
     saveState();
+    updatePlaceButton();
     renderLobbyStatus();
     updateAvatars();
     updateLobbyProfileUI();
     syncLobbyActions();
+    updatePlaceButton();
     updateFullscreenButtons();
     ui.nickNote.textContent = 'Nickname locked. Press Game Start, or use Play Fullscreen on mobile.';
     syncLobbyActions();
@@ -1126,10 +1252,14 @@
   }
 
   async function startGameFromLobby() {
+    if (state.countdownActive) return;
     if (!state.lobbyConfirmed) {
       const ok = await confirmLobbyProfile();
       if (!ok) return;
     }
+    closeStartScreen();
+    const counted = await playCountdownStart();
+    if (!counted) return;
     state.started = true;
     state.phase = 'playing';
     state.paused = false;
@@ -1137,8 +1267,8 @@
     updateAvatars();
     updateLobbyProfileUI();
     syncLobbyActions();
+    updatePlaceButton();
     updateFullscreenButtons();
-    closeStartScreen();
     prepareMatch();
     requestMobileFullscreen(state.fullscreenRequested);
     syncUI();
@@ -1164,14 +1294,21 @@
       openStartScreen();
       return;
     }
-    if (!state.started || state.phase === 'intro') {
-      closeStartScreen();
-    }
-    prepareMatch();
+    clearPendingMove(false);
+    state.started = false;
+    state.phase = 'intro';
+    state.paused = false;
+    state.gameOver = false;
+    closePauseScreen();
+    closeOverlay();
+    openStartScreen();
+    syncUI();
+    renderBoard();
   }
 
   function prepareMatch() {
     state.board = createBoard();
+    state.pendingHumanMove = null;
     state.turn = HUMAN;
     state.gameOver = false;
     state.winner = 0;
@@ -1218,6 +1355,7 @@
   }
 
   function backToLobby() {
+    clearPendingMove(false);
     state.lobbyConfirmed = !!(state.profile && state.profile.nickname);
     state.paused = false;
     state.started = false;
@@ -1231,6 +1369,7 @@
   }
 
   function openStartScreen() {
+    clearPendingMove(false);
     ui.startScreen.classList.remove('hidden');
     state.phase = 'intro';
     state.started = false;
@@ -1355,6 +1494,7 @@
     updateAvatars();
     updateLobbyProfileUI();
     syncLobbyActions();
+    updatePlaceButton();
     updateFullscreenButtons();
   }
 
@@ -1512,16 +1652,13 @@
     if (!pos) return;
     if (state.board[pos.y][pos.x] !== EMPTY) return;
 
-    placeMove(pos.x, pos.y, HUMAN);
-    if (state.gameOver) return;
-
-    state.turn = AI;
-    syncUI();
-    state.pendingLock = true;
-    setTimeout(aiTurn, 150 + Math.min(350, state.streak * 35));
+    state.pendingHumanMove = pos;
+    renderBoard();
+    updatePlaceButton();
   }
 
   function placeMove(x, y, side) {
+    state.pendingHumanMove = null;
     state.board[y][x] = side;
     state.lastMove = { x, y, side };
     state.moveCount += 1;
@@ -1620,6 +1757,7 @@
 
   function aiTurn() {
     if (state.gameOver || state.phase !== 'playing') return;
+    clearPendingMove(false);
     const profile = getAiProfile();
     const move = chooseAiMove(state.board, profile);
     state.pendingLock = false;
@@ -2008,6 +2146,10 @@
       }
     }
 
+    if (state.pendingHumanMove && state.phase === 'playing' && state.turn === HUMAN && !state.gameOver && !state.paused) {
+      drawTouchMarker(ctx, boardCoord(state.pendingHumanMove.x), boardCoord(state.pendingHumanMove.y));
+    }
+
     if (last) {
       ctx.save();
       ctx.beginPath();
@@ -2017,6 +2159,31 @@
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  function drawTouchMarker(ctx, x, y) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,72,34,.98)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    const s = 16;
+    const gap = 8;
+
+    ctx.beginPath();
+    ctx.moveTo(x - s, y - s + gap);
+    ctx.lineTo(x - s, y - s);
+    ctx.lineTo(x - s + gap, y - s);
+    ctx.moveTo(x + s - gap, y - s);
+    ctx.lineTo(x + s, y - s);
+    ctx.lineTo(x + s, y - s + gap);
+    ctx.moveTo(x - s, y + s - gap);
+    ctx.lineTo(x - s, y + s);
+    ctx.lineTo(x - s + gap, y + s);
+    ctx.moveTo(x + s - gap, y + s);
+    ctx.lineTo(x + s, y + s);
+    ctx.lineTo(x + s, y + s - gap);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawStone(ctx, x, y, type) {
@@ -2100,6 +2267,7 @@
     const should = window.innerWidth <= 740 && state.started && state.phase !== 'intro' && state.fullscreenRequested;
     if (should) document.body.classList.add('fa-mobile-fullscreen');
     else document.body.classList.remove('fa-mobile-fullscreen');
+    updatePlaceButton();
     updateFullscreenButtons();
   }
 
