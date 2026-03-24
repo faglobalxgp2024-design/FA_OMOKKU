@@ -131,7 +131,18 @@
     voicesLoaded: false,
     cachedVoices: [],
     preferredVoice: null,
-    winBurstTimer: null
+    winBurstTimer: null,
+    matchMode: 'ai',
+    online: {
+      roomCode: '',
+      role: '',
+      mySide: HUMAN,
+      opponentName: 'Friend',
+      status: 'idle',
+      unsubscribe: null,
+      lastCountdownAt: 0,
+      lastFinishedAt: 0
+    }
   };
 
   const ui = {};
@@ -363,7 +374,7 @@
                 </div>
                 <div class="fa-player-card ai">
                   <div class="fa-player-meta right">
-                    <div class="fa-name">FA AI</div>
+                    <div class="fa-name" id="fa-opponent-name">FA AI</div>
                     <div class="fa-rank" id="fa-ai-rank">Calm</div>
                   </div>
                   <div class="fa-avatar bot"></div>
@@ -388,6 +399,22 @@
                     <div class="fa-stage-title">Enter the Arena</div>
                     <div class="fa-stage-text" id="fa-lobby-text">
                       Create your name, step onto the board, and climb the rank ladder.
+                    </div>
+                    <div class="fa-mode-switch">
+                      <button class="fa-chip active" id="fa-mode-ai">AI Match</button>
+                      <button class="fa-chip" id="fa-mode-friend">Friend Match</button>
+                    </div>
+                    <div class="fa-friend-panel hidden" id="fa-friend-panel">
+                      <div class="fa-friend-top">
+                        <div class="fa-room-code" id="fa-room-code-view">Room: ——</div>
+                        <div class="fa-room-status" id="fa-room-status">Create or join a room.</div>
+                      </div>
+                      <div class="fa-room-actions">
+                        <input id="fa-room-code-input" maxlength="8" autocomplete="off" spellcheck="false" placeholder="Enter room code" />
+                        <button class="fa-btn" id="fa-create-room-btn">Create Room</button>
+                        <button class="fa-btn" id="fa-join-room-btn">Join Room</button>
+                        <button class="fa-btn ghost hidden" id="fa-leave-room-btn">Leave Room</button>
+                      </div>
                     </div>
                     <div class="fa-lobby-result hidden" id="fa-lobby-result">
                       <div class="fa-lobby-result-title" id="fa-lobby-result-title">Last Match</div>
@@ -490,7 +517,7 @@
             <div class="fa-panel info">
               <div class="fa-panel-title">Arena</div>
               <div class="fa-info-box">
-                <div class="fa-info-line"><span>Mode</span><strong>Player vs AI</strong></div>
+                <div class="fa-info-line"><span>Mode</span><strong id="fa-mode-line">Player vs AI</strong></div>
                 <div class="fa-info-line"><span>Rule</span><strong>Five in a row</strong></div>
                 <div class="fa-info-line"><span>Scale</span><strong id="fa-scale-line">Calm</strong></div>
                 <div class="fa-info-line"><span>Review</span><strong id="fa-review-line">Ready</strong></div>
@@ -598,6 +625,17 @@
       }
       .fa-brand-title { font-size: 22px; font-weight: 900; letter-spacing: .05em; }
       .fa-brand-sub { font-size: 12px; color: var(--muted); letter-spacing: .18em; text-transform: uppercase; }
+      .fa-mode-switch { display:flex; gap:10px; margin: 14px 0 12px; }
+      .fa-chip { border:1px solid rgba(255,238,205,.18); background: rgba(255,248,235,.06); color:#fff6e6; border-radius:999px; padding:10px 14px; font-weight:800; cursor:pointer; }
+      .fa-chip.active { background: linear-gradient(180deg, rgba(228,193,126,.28), rgba(177,126,58,.24)); box-shadow: inset 0 0 0 1px rgba(255,228,167,.18); }
+      .fa-friend-panel { margin: 4px 0 14px; padding: 14px; border-radius: 18px; border:1px solid rgba(255,236,205,.12); background: rgba(255,246,229,.05); }
+      .fa-friend-top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom: 10px; flex-wrap:wrap; }
+      .fa-room-code { font-weight:900; letter-spacing:.08em; color:#ffe7b4; }
+      .fa-room-status { color: var(--muted); font-size: 13px; }
+      .fa-room-actions { display:grid; grid-template-columns:minmax(0,1fr) repeat(3, auto); gap:10px; }
+      .fa-room-actions input { min-width:0; background: rgba(255,255,255,.06); color:#fff8ef; border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px 14px; font-size:14px; }
+      .fa-room-actions input::placeholder { color: rgba(255,248,239,.48); }
+
       .fa-main {
         max-width: 1440px; margin: 0 auto; padding: 8px 22px 28px;
         display: grid; grid-template-columns: minmax(0, 1.15fr) 380px; gap: 22px;
@@ -980,6 +1018,8 @@
         .fa-rank-row { grid-template-columns: 42px 1fr auto; padding: 11px; }
         .fa-start-profile { flex-direction: column; text-align: center; }
         .fa-start-fields { width: 100%; text-align: left; }
+        .fa-room-actions { grid-template-columns: 1fr 1fr; }
+        .fa-room-actions input { grid-column: 1 / -1; }
         .fa-board-wrap { min-height: 72vh; }
       }
     `;
@@ -1041,6 +1081,17 @@
     ui.placeBtn = root.querySelector('#fa-place-btn');
     ui.countdownOverlay = root.querySelector('#fa-countdown-overlay');
     ui.countdownText = root.querySelector('#fa-countdown-text');
+    ui.opponentName = root.querySelector('#fa-opponent-name');
+    ui.modeLine = root.querySelector('#fa-mode-line');
+    ui.friendPanel = root.querySelector('#fa-friend-panel');
+    ui.modeAi = root.querySelector('#fa-mode-ai');
+    ui.modeFriend = root.querySelector('#fa-mode-friend');
+    ui.roomCodeInput = root.querySelector('#fa-room-code-input');
+    ui.roomCodeView = root.querySelector('#fa-room-code-view');
+    ui.roomStatus = root.querySelector('#fa-room-status');
+    ui.createRoomBtn = root.querySelector('#fa-create-room-btn');
+    ui.joinRoomBtn = root.querySelector('#fa-join-room-btn');
+    ui.leaveRoomBtn = root.querySelector('#fa-leave-room-btn');
 
     root.querySelector('#fa-open-leaderboard').addEventListener('click', openLeaderboard);
     root.querySelector('#fa-close-leaderboard').addEventListener('click', closeLeaderboard);
@@ -1060,6 +1111,11 @@
     root.querySelector('#fa-floating-fullscreen').addEventListener('click', () => requestMobileFullscreen(true));
     root.querySelector('#fa-floating-exit-fullscreen').addEventListener('click', exitMobileFullscreen);
     ui.placeBtn.addEventListener('click', confirmPendingMove);
+    ui.modeAi.addEventListener('click', () => switchMatchMode('ai'));
+    ui.modeFriend.addEventListener('click', () => switchMatchMode('friend'));
+    ui.createRoomBtn.addEventListener('click', createOnlineRoom);
+    ui.joinRoomBtn.addEventListener('click', joinOnlineRoom);
+    ui.leaveRoomBtn.addEventListener('click', leaveOnlineRoom);
 
     ui.board.addEventListener('click', onBoardClick);
     ui.board.addEventListener('dblclick', e => e.preventDefault());
@@ -1067,6 +1123,9 @@
     ui.nickInput.addEventListener('keydown', e => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Enter') confirmLobbyProfile();
+    });
+    if (ui.roomCodeInput) ui.roomCodeInput.addEventListener('input', () => {
+      ui.roomCodeInput.value = normalizeRoomCode(ui.roomCodeInput.value);
     });
     ui.leaderModal.addEventListener('click', e => {
       if (e.target === ui.leaderModal) closeLeaderboard();
@@ -1307,7 +1366,7 @@
     }, 1400);
   }
 
-  async function startCountdownAndBeginMatch() {
+  async function startCountdownAndBeginMatch(skipPrepare = false) {
     if (state.countdownActive) return;
     state.countdownActive = true;
     showPendingMoveAction(false);
@@ -1336,7 +1395,8 @@
     } finally {
       setCountdownVisible(false, '', false);
       state.countdownActive = false;
-      prepareMatch();
+      if (!skipPrepare) prepareMatch();
+      if (skipPrepare && isOnlineMode() && state.online.role === 'host') await beginOnlinePlayingState();
       syncUI();
     }
   }
@@ -1478,7 +1538,8 @@
     closeStartScreen();
     requestMobileFullscreen(state.fullscreenRequested);
     syncUI();
-    await startCountdownAndBeginMatch();
+    if (isOnlineMode()) await startOnlineRoomMatch();
+    else await startCountdownAndBeginMatch();
   }
 
   function syncLobbyActions() {
@@ -1513,7 +1574,7 @@
 
   function prepareMatch() {
     state.board = createBoard();
-    state.turn = HUMAN;
+    state.turn = getMySide();
     state.gameOver = false;
     state.winner = 0;
     state.lastMove = null;
@@ -1607,11 +1668,290 @@
     ui.overlay.classList.remove('hidden');
   }
 
+
+  function isOnlineMode() {
+    return state.matchMode === 'friend';
+  }
+
+  function normalizeRoomCode(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  }
+
+  function makeRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = '';
+    for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+  }
+
+  function getMySide() {
+    return isOnlineMode() ? (state.online.mySide || HUMAN) : HUMAN;
+  }
+
+  function getOpponentSide() {
+    return getMySide() === HUMAN ? AI : HUMAN;
+  }
+
+  function boardHash(board) {
+    try { return JSON.stringify(board || []); } catch { return ''; }
+  }
+
+  function switchMatchMode(mode) {
+    state.matchMode = mode === 'friend' ? 'friend' : 'ai';
+    if (state.matchMode === 'ai') {
+      state.online.status = 'idle';
+    }
+    syncUI();
+    renderLobbyStatus();
+  }
+
+  async function leaveOnlineRoom() {
+    try {
+      if (!state.online.roomCode || !window.firebase || !firebase.database) {
+        state.online = { roomCode: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0 };
+        syncUI();
+        return;
+      }
+      const code = state.online.roomCode;
+      if (state.online.unsubscribe) {
+        try { state.online.unsubscribe.off(); } catch {}
+      }
+      const ref = firebase.database().ref('omokRooms/' + code);
+      const snap = await ref.once('value');
+      const room = snap.val() || {};
+      const updates = {};
+      if (room.hostId === state.profile?.id) {
+        updates.hostId = null;
+        updates.hostNickname = null;
+      }
+      if (room.guestId === state.profile?.id) {
+        updates.guestId = null;
+        updates.guestNickname = null;
+      }
+      const next = { ...room, ...updates };
+      if (!next.hostId && !next.guestId) await ref.remove();
+      else {
+        next.status = next.hostId && next.guestId ? 'ready' : 'waiting';
+        next.updatedAt = Date.now();
+        await ref.set(next);
+      }
+    } catch (e) {
+      console.log('leave room error ignored:', e);
+    }
+    state.online = { roomCode: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0 };
+    syncUI();
+    renderLobbyStatus();
+  }
+
+  function attachOnlineRoom(code) {
+    if (!window.firebase || !firebase.database) return;
+    if (state.online.unsubscribe) {
+      try { state.online.unsubscribe.off(); } catch {}
+    }
+    const ref = firebase.database().ref('omokRooms/' + code);
+    ref.on('value', snap => {
+      const room = snap.val();
+      if (!room) return;
+      applyOnlineRoomState(room);
+    });
+    state.online.unsubscribe = ref;
+  }
+
+  function applyOnlineRoomState(room) {
+    if (!room) return;
+    const me = state.profile?.id;
+    const isHost = room.hostId && me && room.hostId === me;
+    const isGuest = room.guestId && me && room.guestId === me;
+    state.online.roomCode = room.code || state.online.roomCode;
+    state.online.role = isHost ? 'host' : isGuest ? 'guest' : state.online.role;
+    state.online.mySide = isHost ? HUMAN : isGuest ? AI : state.online.mySide;
+    state.online.opponentName = isHost ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
+    state.online.status = room.status || (room.guestId ? 'ready' : 'waiting');
+
+    if (room.status === 'countdown' && room.countdownAt && state.online.lastCountdownAt !== room.countdownAt) {
+      state.online.lastCountdownAt = room.countdownAt;
+      startCountdownAndBeginMatch(true);
+    }
+
+    if (room.status === 'playing') {
+      state.started = true;
+      state.phase = 'playing';
+      state.gameOver = false;
+      state.winner = 0;
+      state.board = Array.isArray(room.board) ? room.board : createBoard();
+      state.lastMove = room.lastMove || null;
+      state.turn = room.turn || HUMAN;
+      state.moveCount = Number(room.moveCount || 0);
+      state.winningLine = Array.isArray(room.winningLine) ? room.winningLine : [];
+      clearPendingMove();
+      closeStartScreen();
+      closePauseScreen();
+      closeOverlay();
+      renderBoard();
+    }
+
+    if (room.status === 'finished' && room.finishedAt && state.online.lastFinishedAt !== room.finishedAt) {
+      state.online.lastFinishedAt = room.finishedAt;
+      state.board = Array.isArray(room.board) ? room.board : state.board;
+      state.lastMove = room.lastMove || state.lastMove;
+      state.turn = room.turn || state.turn;
+      state.moveCount = Number(room.moveCount || state.moveCount || 0);
+      state.winningLine = Array.isArray(room.winningLine) ? room.winningLine : [];
+      renderBoard(undefined, undefined, state.winningLine);
+      if (!state.gameOver) finishGame(room.winner || 0, state.winningLine, true);
+    }
+    syncUI();
+    renderLobbyStatus();
+  }
+
+  async function createOnlineRoom() {
+    if (!state.profile) {
+      const ok = await confirmLobbyProfile();
+      if (!ok) return;
+    }
+    if (!window.firebase || !firebase.database) {
+      ui.nickNote.textContent = 'Firebase room sync is not available.';
+      return;
+    }
+    const code = makeRoomCode();
+    const payload = {
+      code,
+      hostId: state.profile.id,
+      hostNickname: state.profile.nickname,
+      guestId: null,
+      guestNickname: null,
+      status: 'waiting',
+      board: createBoard(),
+      turn: HUMAN,
+      winner: 0,
+      winningLine: [],
+      moveCount: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    await firebase.database().ref('omokRooms/' + code).set(payload);
+    state.online.roomCode = code;
+    state.online.role = 'host';
+    state.online.mySide = HUMAN;
+    state.online.opponentName = 'Waiting...';
+    state.online.status = 'waiting';
+    if (ui.roomCodeInput) ui.roomCodeInput.value = code;
+    attachOnlineRoom(code);
+    syncUI();
+  }
+
+  async function joinOnlineRoom() {
+    if (!state.profile) {
+      const ok = await confirmLobbyProfile();
+      if (!ok) return;
+    }
+    if (!window.firebase || !firebase.database) {
+      ui.nickNote.textContent = 'Firebase room sync is not available.';
+      return;
+    }
+    const code = normalizeRoomCode(ui.roomCodeInput?.value);
+    if (!code) {
+      ui.roomStatus.textContent = 'Enter a valid room code.';
+      return;
+    }
+    const ref = firebase.database().ref('omokRooms/' + code);
+    const snap = await ref.once('value');
+    const room = snap.val();
+    if (!room) {
+      ui.roomStatus.textContent = 'Room not found.';
+      return;
+    }
+    if (room.guestId && room.guestId !== state.profile.id && room.hostId !== state.profile.id) {
+      ui.roomStatus.textContent = 'This room is already full.';
+      return;
+    }
+    room.guestId = room.guestId || state.profile.id;
+    room.guestNickname = room.guestNickname || state.profile.nickname;
+    room.status = room.hostId && room.guestId ? 'ready' : 'waiting';
+    room.updatedAt = Date.now();
+    await ref.set(room);
+    state.online.roomCode = code;
+    state.online.role = room.hostId === state.profile.id ? 'host' : 'guest';
+    state.online.mySide = state.online.role === 'host' ? HUMAN : AI;
+    state.online.opponentName = state.online.role === 'host' ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
+    state.online.status = room.status;
+    attachOnlineRoom(code);
+    syncUI();
+  }
+
+  async function startOnlineRoomMatch() {
+    if (!state.online.roomCode || !window.firebase || !firebase.database) {
+      openStartScreen();
+      state.started = false;
+      state.phase = 'intro';
+      syncUI();
+      return;
+    }
+    const ref = firebase.database().ref('omokRooms/' + state.online.roomCode);
+    const snap = await ref.once('value');
+    const room = snap.val();
+    if (!room || !room.hostId || !room.guestId) {
+      ui.roomStatus.textContent = 'Wait until your friend joins the room.';
+      openStartScreen();
+      state.started = false;
+      state.phase = 'intro';
+      syncUI();
+      return;
+    }
+    await ref.update({
+      status: 'countdown',
+      countdownAt: Date.now(),
+      winner: 0,
+      winningLine: [],
+      board: createBoard(),
+      turn: HUMAN,
+      moveCount: 0,
+      lastMove: null,
+      updatedAt: Date.now()
+    });
+  }
+
+  async function beginOnlinePlayingState() {
+    if (!state.online.roomCode || state.online.role !== 'host' || !window.firebase || !firebase.database) return;
+    await firebase.database().ref('omokRooms/' + state.online.roomCode).update({
+      status: 'playing',
+      board: createBoard(),
+      turn: HUMAN,
+      winner: 0,
+      winningLine: [],
+      moveCount: 0,
+      lastMove: null,
+      updatedAt: Date.now()
+    });
+  }
+
+  async function pushOnlineMove() {
+    if (!state.online.roomCode || !window.firebase || !firebase.database) return;
+    await firebase.database().ref('omokRooms/' + state.online.roomCode).update({
+      status: state.gameOver ? 'finished' : 'playing',
+      board: state.board,
+      turn: state.turn,
+      winner: state.winner || 0,
+      winningLine: state.winningLine || [],
+      moveCount: state.moveCount || 0,
+      lastMove: state.lastMove || null,
+      finishedAt: state.gameOver ? Date.now() : null,
+      updatedAt: Date.now()
+    });
+  }
+
   function renderLobbyStatus() {
     if (!ui.lobbyResult) return;
     const result = state.lastResult;
     const summary = `Record ${state.totalWins}W · ${state.totalLosses}L · Best Streak ${state.bestStreak}`;
-    ui.lobbyText.textContent = state.profile ? 'Press the center button to begin your next ranked match.' : 'Create your name, then begin your climb on the ladder.';
+    if (isOnlineMode()) {
+      if (!state.online.roomCode) ui.lobbyText.textContent = 'Create or join a Firebase room, then start your online friendly match.';
+      else if (state.online.status === 'waiting') ui.lobbyText.textContent = `Room ${state.online.roomCode} is ready. Share the code and wait for your friend.`;
+      else if (state.online.status === 'ready') ui.lobbyText.textContent = `Friend connected. Press Game Start to begin room ${state.online.roomCode}.`;
+      else ui.lobbyText.textContent = `Online room ${state.online.roomCode} synced.`;
+    } else {
+      ui.lobbyText.textContent = state.profile ? 'Press the center button to begin your next ranked match.' : 'Create your name, then begin your climb on the ladder.';
+    }
     if (!result) {
       ui.lobbyResult.classList.add('hidden');
       return;
@@ -1664,7 +2004,7 @@
     ui.playerName.textContent = state.profile ? state.profile.nickname : 'Guest';
     ui.playerRank.textContent = rank;
     ui.sideName.textContent = state.profile ? state.profile.nickname : 'Guest';
-    ui.aiRank.textContent = getAiTitle();
+    ui.aiRank.textContent = isOnlineMode() ? 'Online Friendly' : getAiTitle();
     ui.streakLabel.textContent = 'Win Streak ' + state.streak;
 
     let turnText = 'Press Start';
@@ -1673,7 +2013,8 @@
     else if (state.gameOver) {
       turnText = state.winner === HUMAN ? 'Victory' : state.winner === AI ? 'Defeat' : 'Draw';
     } else {
-      turnText = state.turn === HUMAN ? 'Your Move' : 'AI Thinking';
+      if (isOnlineMode()) turnText = state.turn === getMySide() ? 'Your Move' : 'Friend Turn';
+      else turnText = state.turn === HUMAN ? 'Your Move' : 'AI Thinking';
     }
     ui.turnLabel.textContent = turnText;
 
@@ -1686,9 +2027,17 @@
     ui.totalLosses.textContent = String(state.totalLosses);
     ui.totalGames.textContent = String(state.totalGames);
     ui.bestTier.textContent = String(state.bestStreak);
-    ui.scaleLine.textContent = getAiTitle();
+    ui.scaleLine.textContent = isOnlineMode() ? (state.online.roomCode ? `Room ${state.online.roomCode}` : 'Friend Match') : getAiTitle();
     ui.reviewLine.textContent = state.review.length ? `${state.reviewIndex + 1} / ${state.review.length}` : 'Ready';
-    ui.connectionNote.textContent = state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected';
+    if (ui.opponentName) ui.opponentName.textContent = isOnlineMode() ? (state.online.opponentName || 'Friend') : 'FA AI';
+    if (ui.modeLine) ui.modeLine.textContent = isOnlineMode() ? 'Friend Match Online' : 'Player vs AI';
+    if (ui.friendPanel) ui.friendPanel.classList.toggle('hidden', !isOnlineMode());
+    if (ui.modeAi) ui.modeAi.classList.toggle('active', !isOnlineMode());
+    if (ui.modeFriend) ui.modeFriend.classList.toggle('active', isOnlineMode());
+    if (ui.roomCodeView) ui.roomCodeView.textContent = `Room: ${state.online.roomCode || '——'}`;
+    if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? 'Friend joined. Ready to start.' : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? 'Match in progress.' : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
+    if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !state.online.roomCode);
+    ui.connectionNote.textContent = isOnlineMode() ? (state.online.roomCode ? `Online room ${state.online.roomCode}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
     syncLobbyActions();
     updateFullscreenButtons();
 
@@ -1851,7 +2200,7 @@
       openStartScreen();
       return;
     }
-    if (!state.started || state.phase !== 'playing' || state.turn !== HUMAN || state.gameOver || state.pendingLock || state.paused || state.countdownActive) return;
+    if (!state.started || state.phase !== 'playing' || state.turn !== getMySide() || state.gameOver || state.pendingLock || state.paused || state.countdownActive) return;
 
     const rect = ui.board.getBoundingClientRect();
     const scaleX = ui.board.width / rect.width;
@@ -1869,7 +2218,7 @@
   function confirmPendingMove() {
     const pos = state.pendingMove;
     if (!pos) return;
-    if (!state.started || state.phase !== 'playing' || state.turn !== HUMAN || state.gameOver || state.pendingLock || state.paused || state.countdownActive) return;
+    if (!state.started || state.phase !== 'playing' || state.turn !== getMySide() || state.gameOver || state.pendingLock || state.paused || state.countdownActive) return;
     if (state.board[pos.y][pos.x] !== EMPTY) {
       clearPendingMove();
       return;
@@ -1879,8 +2228,12 @@
     initAudio();
     playUiTap();
     triggerHaptic('place');
-    placeMove(pos.x, pos.y, HUMAN);
+    placeMove(pos.x, pos.y, getMySide());
     state.pendingMove = null;
+    if (isOnlineMode()) {
+      pushOnlineMove();
+      return;
+    }
     if (state.gameOver) return;
 
     state.turn = AI;
@@ -1917,32 +2270,35 @@
     syncUI();
   }
 
-  async function finishGame(winner, line) {
+  async function finishGame(winner, line, fromRemote = false) {
     state.pendingLock = false;
     state.totalGames += 1;
     let title = 'Draw';
     let text = 'No winner this round.';
-    if (winner === HUMAN) {
+    const mySide = getMySide();
+    const oppSide = getOpponentSide();
+    if (winner === mySide) {
       state.totalWins += 1;
       applyRankedResult(true);
       state.streak += 1;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
       title = 'Victory!';
-      text = `Elegant finish. ${getCurrentRankFromState()} · Streak ${state.streak}`;
+      text = isOnlineMode() ? `Beautiful finish. ${getCurrentRankFromState()} · Friendly win secured.` : `Elegant finish. ${getCurrentRankFromState()} · Streak ${state.streak}`;
       triggerWinBurst('win');
       triggerHaptic('win');
       fanfare(true);
-    } else if (winner === AI) {
+    } else if (winner === oppSide) {
       state.totalLosses += 1;
       applyRankedResult(false);
       state.streak = 0;
       title = 'Defeat!';
-      text = `The AI held the line. ${getCurrentRankFromState()} · Challenge ${getAiTitle()}`;
+      text = isOnlineMode() ? `Your friend took the round. ${getCurrentRankFromState()} · Try again.` : `The AI held the line. ${getCurrentRankFromState()} · Challenge ${getAiTitle()}`;
       triggerWinBurst('loss');
       triggerHaptic('loss');
       fanfare(false);
     }
     saveState();
+    if (isOnlineMode() && !fromRemote) await pushOnlineMove();
     await syncProfileToLeaderboard();
     state.lastResult = { title, text };
     state.paused = false;
