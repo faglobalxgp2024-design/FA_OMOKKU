@@ -374,7 +374,7 @@
                 </div>
 
                 <div class="fa-place-action hidden" id="fa-place-action">
-                  <button class="fa-btn primary big" id="fa-place-btn">착수</button>
+                  <button class="fa-btn primary big" id="fa-place-btn">Place</button>
                 </div>
 
                 <div class="fa-stage fa-intro" id="fa-start-screen">
@@ -855,16 +855,17 @@
         backdrop-filter: blur(2px);
       }
       .fa-countdown-num {
-        min-width: 180px; min-height: 180px; border-radius: 999px;
+        min-width: auto; min-height: auto; border-radius: 0;
         display: flex; align-items: center; justify-content: center;
-        font-size: clamp(48px, 10vw, 96px); font-weight: 1000; letter-spacing: -.04em;
+        padding: 0 18px;
+        font-size: clamp(56px, 11vw, 108px); font-weight: 1000; letter-spacing: -.04em;
         color: #fff8e6; text-shadow: 0 8px 30px rgba(0,0,0,.35);
-        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.32), rgba(255,255,255,.08)), linear-gradient(180deg, rgba(82,224,145,.96), rgba(21,142,69,.96));
-        box-shadow: 0 22px 60px rgba(0,0,0,.28), inset 0 2px 14px rgba(255,255,255,.22);
-        border: 1px solid rgba(255,255,255,.22);
+        background: transparent;
+        box-shadow: none;
+        border: 0;
       }
       .fa-countdown.start .fa-countdown-num {
-        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.36), rgba(255,255,255,.10)), linear-gradient(180deg, rgba(255,214,92,.98), rgba(255,149,0,.95));
+        color: #ffe47c;
       }
       .fa-board-wrap.locked #fa-board { pointer-events: none; }
       .fa-board-wrap .fa-stage,
@@ -2168,8 +2169,8 @@
     if (!overrideBoard && state.pendingMove && !state.gameOver && state.phase === 'playing') {
       const px = boardCoord(state.pendingMove.x);
       const py = boardCoord(state.pendingMove.y);
-      const gap = 13;
-      const len = 11;
+      const gap = 12;
+      const len = 10;
       ctx.save();
       ctx.strokeStyle = 'rgba(255,58,38,.96)';
       ctx.lineWidth = 4;
