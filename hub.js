@@ -1,4 +1,5 @@
 
+
   function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
@@ -1115,13 +1116,43 @@
     });
   }
 
-  function speakCountdownText(text) {
+  function playCountdownChime(step) {
+    if (!state.audio) return;
+    const ctx = state.audio;
+    const now = ctx.currentTime;
+    const noteSets = {
+      count: [660, 880],
+      start: [784, 1046, 1318]
+    };
+    const notes = noteSets[step] || noteSets.count;
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx === notes.length - 1 ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+      gain.gain.setValueAtTime(0.001, now + idx * 0.05);
+      gain.gain.exponentialRampToValueAtTime(step === 'start' ? 0.12 : 0.08, now + idx * 0.05 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + (step === 'start' ? 0.22 : 0.16));
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + idx * 0.05);
+      osc.stop(now + idx * 0.05 + (step === 'start' ? 0.24 : 0.18));
+    });
+  }
+
+  function speakCountdownText(text, mode = 'count') {
     try {
       if (!('speechSynthesis' in window)) return;
-      const utter = new SpeechSynthesisUtterance(String(text));
-      utter.lang = /^\d+$/.test(String(text)) ? 'en-US' : 'ko-KR';
-      utter.rate = 0.95;
-      utter.pitch = 1;
+      const target = String(text);
+      const utter = new SpeechSynthesisUtterance(target);
+      utter.lang = /^\d+$/.test(target) ? 'en-US' : 'ko-KR';
+      const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+      const preferred = voices.find(v => /ko|Korean/i.test(`${v.lang} ${v.name}`))
+        || voices.find(v => /en-US|en_US/i.test(v.lang || ''))
+        || null;
+      if (preferred) utter.voice = preferred;
+      utter.rate = mode === 'start' ? 1.12 : 1.08;
+      utter.pitch = mode === 'start' ? 1.45 : 1.3;
+      utter.volume = 1;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utter);
     } catch {}
@@ -1135,13 +1166,13 @@
     for (const item of sequence) {
       if (ui.countdownNumber) ui.countdownNumber.textContent = item;
       if (item === 'Start!') {
-        speakCountdownText('게임 스타트');
-        hitSound('ui');
-        await sleep(750);
+        playCountdownChime('start');
+        speakCountdownText('게임 스타트!', 'start');
+        await sleep(900);
       } else {
-        speakCountdownText(item);
-        hitSound('ui');
-        await sleep(800);
+        playCountdownChime('count');
+        speakCountdownText(item, 'count');
+        await sleep(720);
       }
     }
     if (ui.countdown) ui.countdown.classList.add('hidden');
