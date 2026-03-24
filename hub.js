@@ -33,6 +33,8 @@
   const DEFAULT_AVATARS = ['🐻','🐼','🦊','🐯','🐨','🐶','🐱','🐹'];
   const TURN_LIMIT_MS = 60 * 1000;
   const ROOM_STALE_MS = 1000 * 60 * 20;
+  const ROOM_PRESENCE_TTL_MS = 1000 * 15;
+  const ROOM_PRESENCE_PING_MS = 1000 * 5;
 
   const FirebaseLeaderboardAdapter = {
   mode: 'firebase-ready',
@@ -152,7 +154,8 @@
       lastFinishedAt: 0,
       hostReady: false,
       guestReady: false,
-      turnExpiresAt: 0
+      turnExpiresAt: 0,
+      presenceHandle: null
     }
   };
 
@@ -655,10 +658,10 @@
       .fa-room-actions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) repeat(3, auto); gap:10px; }
       .fa-room-actions input { min-width:0; background: rgba(255,255,255,.06); color:#fff8ef; border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px 14px; font-size:14px; }
       .fa-room-actions input::placeholder { color: rgba(255,248,239,.48); }
-      .fa-open-rooms { margin-top:12px; border:1px solid rgba(255,255,255,.10); background: rgba(22,10,2,.22); border-radius:18px; padding:12px; }
+      .fa-open-rooms { margin-top:12px; border:1px solid rgba(255,255,255,.10); background: rgba(22,10,2,.22); border-radius:18px; padding:12px; overflow:hidden; }
       .fa-open-rooms-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
       .fa-open-rooms-title { font-weight:900; color:#ffe7b4; letter-spacing:.04em; }
-            .fa-open-rooms-list { display:flex; flex-wrap:wrap; gap:12px; max-height:260px; overflow:auto; align-items:stretch; padding-bottom:2px; }
+            .fa-open-rooms-list { display:flex; flex-wrap:wrap; gap:12px; max-height:260px; overflow:auto; align-items:stretch; padding-bottom:2px; overscroll-behavior: contain; }
       .fa-open-rooms-list.single-room { justify-content:center; }
       .fa-open-rooms-list.single-room .fa-room-item { min-width:min(100%, 420px); flex:0 1 420px; }
       .fa-room-item {
@@ -1004,6 +1007,8 @@
       .fa-board-wrap .fa-countdown { border-radius: 26px; }
       .fa-board-wrap .fa-place-action.hidden,
       .fa-board-wrap .fa-countdown.hidden { display: none; }
+      body.fa-roomlist-lock { overflow:hidden !important; overscroll-behavior:none; }
+      body.fa-roomlist-lock .fa-open-rooms-list { touch-action: pan-x; }
 
       .fa-confirm-card { width: min(100%, 420px); }
       .fa-confirm-icon {
@@ -1097,7 +1102,7 @@
         .fa-start-fields { width: 100%; text-align: left; }
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
         .fa-room-actions input { grid-column: 1 / -1; }
-        .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; justify-content:flex-start; }
+        .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; justify-content:flex-start; touch-action: pan-x; overscroll-behavior-x: contain; }
         .fa-open-rooms-list.single-room { overflow-x: hidden; justify-content: center; }
         .fa-room-item { grid-template-columns: minmax(0,1fr) auto; min-width: 86vw; width: 86vw; max-width: 360px; flex: 0 0 86vw; scroll-snap-align: start; }
         .fa-open-rooms-list.single-room .fa-room-item { min-width: min(100%, 360px); width: min(100%, 360px); flex: 0 1 min(100%, 360px); }
@@ -1893,6 +1898,7 @@
     if (state.matchMode === 'ai') {
       state.online.status = 'idle';
     }
+    setRoomListLocked(false);
     syncUI();
     renderLobbyStatus();
   }
@@ -1900,7 +1906,8 @@
   async function leaveOnlineRoom() {
     try {
       if (!(state.online.roomId || state.online.roomCode) || !window.firebase || !firebase.database) {
-        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0 };
+        stopOnlinePresence();
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null };
         syncUI();
         return;
       }
@@ -1944,8 +1951,10 @@
     } catch (e) {
       console.log('leave room error ignored:', e);
     }
-    state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0 };
+    stopOnlinePresence();
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null };
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+    setRoomListLocked(false);
     syncUI();
     renderLobbyStatus();
   }
@@ -1962,6 +1971,7 @@
       applyOnlineRoomState(room);
     });
     state.online.unsubscribe = ref;
+    startOnlinePresence();
   }
 
   function applyOnlineRoomState(room) {
@@ -1979,6 +1989,17 @@
     state.online.hostReady = !!room.hostReady;
     state.online.guestReady = !!room.guestReady;
     state.online.turnExpiresAt = Number(room.turnExpiresAt || 0);
+    const hostAlive = isRoomRoleAlive(room, 'host');
+    const guestAlive = isRoomRoleAlive(room, 'guest');
+    if (!hostAlive && state.online.role === 'guest') {
+      state.online.status = 'waiting';
+      state.online.hostReady = false;
+    }
+    if (!guestAlive && state.online.role === 'host') {
+      state.online.status = 'waiting';
+      state.online.guestReady = false;
+      state.online.opponentName = 'Waiting...';
+    }
 
     if (room.status === 'countdown' && room.countdownAt && state.online.lastCountdownAt !== room.countdownAt) {
       state.online.lastCountdownAt = room.countdownAt;
@@ -2022,6 +2043,7 @@
       renderBoard(undefined, undefined, state.winningLine);
       if (!state.gameOver) finishGame(room.winner || 0, state.winningLine, true);
     }
+    if (room.status !== 'waiting') setRoomListLocked(false);
     syncUI();
     renderLobbyStatus();
   }
@@ -2029,6 +2051,40 @@
 
   function sanitizeRoomTitle(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  }
+
+
+  function setRoomListLocked(locked) {
+    document.body.classList.toggle('fa-roomlist-lock', !!locked);
+  }
+
+  function stopOnlinePresence() {
+    if (state.online.presenceHandle) {
+      clearInterval(state.online.presenceHandle);
+      state.online.presenceHandle = null;
+    }
+  }
+
+  async function pingOnlinePresence() {
+    try {
+      if (!(state.online.roomId || state.online.roomCode) || !window.firebase || !firebase.database || !state.profile) return;
+      const key = state.online.role === 'guest' ? 'guestPingAt' : 'hostPingAt';
+      await firebase.database().ref(getRoomPath(state.online.roomId || state.online.roomCode)).update({ [key]: Date.now(), updatedAt: Date.now() });
+    } catch (e) {
+      console.log('presence ping ignored:', e);
+    }
+  }
+
+  function startOnlinePresence() {
+    stopOnlinePresence();
+    if (!(state.online.roomId || state.online.roomCode) || !state.online.role) return;
+    pingOnlinePresence();
+    state.online.presenceHandle = setInterval(pingOnlinePresence, ROOM_PRESENCE_PING_MS);
+  }
+
+  function isRoomRoleAlive(room, role) {
+    const stamp = Number(role === 'guest' ? room?.guestPingAt : room?.hostPingAt || 0);
+    return !!stamp && (Date.now() - stamp) <= ROOM_PRESENCE_TTL_MS;
   }
 
   function escapeHtml(value) {
@@ -2043,6 +2099,7 @@
   function renderOpenRooms(rooms) {
     if (!ui.openRoomsPanel || !ui.openRoomsList) return;
     ui.openRoomsPanel.classList.remove('hidden');
+    setRoomListLocked(true);
     ui.openRoomsList.classList.toggle('single-room', rooms.length === 1);
     if (!rooms.length) {
       ui.openRoomsList.innerHTML = '<div class="fa-room-empty">No open rooms right now.</div>';
@@ -2168,6 +2225,8 @@
       winningLine: [],
       moveCount: 0,
       createdAt: now,
+      hostPingAt: now,
+      guestPingAt: 0,
       updatedAt: now
     };
     await roomRef.set(payload);
@@ -2180,6 +2239,7 @@
     state.online.status = 'waiting';
     if (ui.roomStatus) ui.roomStatus.textContent = accessCode ? 'Private room created. Share the room title and code.' : 'Open room created. Your friend can join from the room list.';
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+    setRoomListLocked(false);
     attachOnlineRoom(roomId);
     syncUI();
   }
@@ -2244,6 +2304,7 @@
     room.guestReady = !!room.guestReady;
     room.status = room.hostId && room.guestId ? 'ready' : 'waiting';
     room.updatedAt = Date.now();
+    room.guestPingAt = Date.now();
     await ref.set({ ...room, id: room.id || roomId, code: room.accessCode || room.code || '' });
     state.online.roomId = roomId;
     state.online.roomCode = room.accessCode || room.code || '';
@@ -2254,6 +2315,7 @@
     state.online.status = room.status;
     attachOnlineRoom(roomId);
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+    setRoomListLocked(false);
     if (ui.roomStatus) ui.roomStatus.textContent = `Joined ${room.title || 'room'} · Press Ready to enter the duel.`;
     openStartScreen();
     syncUI();
@@ -2281,7 +2343,15 @@
 
     const amHost = state.online.role === 'host';
     const amGuest = state.online.role === 'guest';
+    const hostAlive = isRoomRoleAlive(room, 'host');
+    const guestAlive = isRoomRoleAlive(room, 'guest');
     if (amGuest) {
+      if (!hostAlive) {
+        ui.roomStatus.textContent = 'The host is no longer in the room.';
+        openStartScreen();
+        syncUI();
+        return;
+      }
       if (room.guestReady) {
         ui.roomStatus.textContent = 'Ready locked. Waiting for the host to start.';
         openStartScreen();
@@ -2290,6 +2360,7 @@
       }
       await ref.update({
         guestReady: true,
+        guestPingAt: Date.now(),
         hostReady: !!room.hostReady,
         status: 'ready',
         updatedAt: Date.now()
@@ -2301,6 +2372,19 @@
     }
 
     if (amHost) {
+      if (!room.guestId || !guestAlive) {
+        await ref.update({
+          guestId: null,
+          guestNickname: null,
+          guestReady: false,
+          status: 'waiting',
+          updatedAt: Date.now()
+        });
+        ui.roomStatus.textContent = 'Your friend is no longer in the room.';
+        openStartScreen();
+        syncUI();
+        return;
+      }
       if (!room.guestReady) {
         ui.roomStatus.textContent = 'Your friend must press Ready first.';
         openStartScreen();
@@ -2309,6 +2393,7 @@
       }
       await ref.update({
         hostReady: true,
+        hostPingAt: Date.now(),
         status: 'countdown',
         countdownAt: Date.now(),
         winner: 0,
