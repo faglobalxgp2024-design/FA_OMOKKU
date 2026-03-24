@@ -1139,35 +1139,23 @@
     });
   }
 
-  
   function speakCountdownText(text, mode = 'count') {
     try {
       if (!('speechSynthesis' in window)) return;
-      let target = String(text);
-
-      // 숫자를 또박또박 영어 발음으로 변경
-      if (/^\d+$/.test(target)) {
-        if (target === '3') target = 'three';
-        if (target === '2') target = 'two';
-        if (target === '1') target = 'one';
-      }
-
+      const target = String(text);
       const utter = new SpeechSynthesisUtterance(target);
-      utter.lang = /^\d+$/.test(text) ? 'en-US' : 'ko-KR';
-
+      utter.lang = /^\d+$/.test(target) ? 'en-US' : 'ko-KR';
       const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
-      const preferred = voices.find(v => /en-US/i.test(v.lang)) || voices[0] || null;
+      const preferred = voices.find(v => /ko|Korean/i.test(`${v.lang} ${v.name}`))
+        || voices.find(v => /en-US|en_US/i.test(v.lang || ''))
+        || null;
       if (preferred) utter.voice = preferred;
-
-      // 또박또박 + 느리게
-      utter.rate = mode === 'start' ? 0.9 : 0.75;
-      utter.pitch = mode === 'start' ? 1.6 : 1.2;
+      utter.rate = mode === 'start' ? 1.12 : 1.08;
+      utter.pitch = mode === 'start' ? 1.45 : 1.3;
       utter.volume = 1;
-
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utter);
     } catch {}
-  }
   }
 
   async function playCountdownStart() {
