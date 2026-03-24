@@ -659,6 +659,8 @@
       .fa-open-rooms-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
       .fa-open-rooms-title { font-weight:900; color:#ffe7b4; letter-spacing:.04em; }
             .fa-open-rooms-list { display:flex; flex-wrap:wrap; gap:12px; max-height:260px; overflow:auto; align-items:stretch; padding-bottom:2px; }
+      .fa-open-rooms-list.single-room { justify-content:center; }
+      .fa-open-rooms-list.single-room .fa-room-item { min-width:min(100%, 420px); flex:0 1 420px; }
       .fa-room-item {
         display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:14px;
         border-radius:20px; min-width:280px; flex:1 1 310px;
@@ -675,6 +677,13 @@
       .fa-room-item-badge.locked { background: rgba(255,197,64,.12); color:#ffe39c; border:1px solid rgba(255,197,64,.25); }
       .fa-room-empty { padding:14px; border-radius:14px; background: rgba(255,255,255,.04); color: var(--muted); text-align:center; }
       .fa-btn.tiny { padding:8px 12px; font-size:12px; min-height:auto; border-radius:12px; }
+      .fa-btn.ready-active, .fa-btn[aria-pressed="true"] {
+        background: linear-gradient(180deg, rgba(131,96,49,.92), rgba(82,55,25,.95));
+        color:#ffeec9;
+        border-color: rgba(255,224,167,.28);
+        box-shadow: inset 0 2px 10px rgba(0,0,0,.22), 0 0 0 1px rgba(255,234,190,.10);
+        transform: translateY(1px);
+      }
 
       .fa-main {
         max-width: 1440px; margin: 0 auto; padding: 8px 22px 28px;
@@ -1006,9 +1015,34 @@
 
       body.fa-mobile-fullscreen .fa-topbar,
       body.fa-mobile-fullscreen .fa-right,
-      body.fa-mobile-fullscreen .fa-bottom,
-      body.fa-mobile-fullscreen .fa-status-row {
+      body.fa-mobile-fullscreen .fa-bottom {
         display: none !important;
+      }
+      body.fa-mobile-fullscreen .fa-status-row {
+        display: block !important;
+        position: fixed;
+        top: max(10px, env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        width: auto;
+        margin: 0;
+        z-index: 35;
+        pointer-events: none;
+      }
+      body.fa-mobile-fullscreen .fa-status-row .fa-player-card,
+      body.fa-mobile-fullscreen .fa-status-row .fa-turn,
+      body.fa-mobile-fullscreen .fa-status-row .fa-streak {
+        display: none !important;
+      }
+      body.fa-mobile-fullscreen .fa-status-row .fa-center-vs {
+        padding: 0;
+      }
+      body.fa-mobile-fullscreen .fa-status-row .fa-turn-timer {
+        display: inline-flex !important;
+        min-width: 132px;
+        padding: 10px 14px;
+        font-size: 16px;
+        box-shadow: 0 10px 28px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.08);
       }
       body.fa-mobile-fullscreen .fa-main {
         display: block;
@@ -1063,8 +1097,10 @@
         .fa-start-fields { width: 100%; text-align: left; }
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
         .fa-room-actions input { grid-column: 1 / -1; }
-        .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+        .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; justify-content:flex-start; }
+        .fa-open-rooms-list.single-room { overflow-x: hidden; justify-content: center; }
         .fa-room-item { grid-template-columns: minmax(0,1fr) auto; min-width: 86vw; width: 86vw; max-width: 360px; flex: 0 0 86vw; scroll-snap-align: start; }
+        .fa-open-rooms-list.single-room .fa-room-item { min-width: min(100%, 360px); width: min(100%, 360px); flex: 0 1 min(100%, 360px); }
         .fa-board-wrap { min-height: 72vh; }
       }
     `;
@@ -1120,6 +1156,7 @@
     ui.lobbyConfirmActions = root.querySelector('#fa-lobby-confirm-actions');
     ui.lobbyStartActions = root.querySelector('#fa-lobby-start-actions');
     ui.confirmProfileBtn = root.querySelector('#fa-confirm-profile-btn');
+    ui.saveStart = root.querySelector('#fa-save-start');
     ui.floatingGameActions = root.querySelector('#fa-floating-game-actions');
     ui.floatingFullscreen = root.querySelector('#fa-floating-fullscreen');
     ui.floatingExitFullscreen = root.querySelector('#fa-floating-exit-fullscreen');
@@ -1460,20 +1497,20 @@
     const ctx = state.audio;
     const now = ctx.currentTime;
     const master = ctx.createGain();
-    master.gain.value = type === 'stone' ? 0.32 : 0.22;
+    master.gain.value = type === 'stone' ? 0.32 : type === 'tick' ? 0.42 : type === 'ui' ? 0.3 : 0.22;
     master.connect(ctx.destination);
 
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
-    osc1.type = 'triangle';
-    osc1.frequency.setValueAtTime(type === 'stone' ? 190 : 360, now);
-    osc1.frequency.exponentialRampToValueAtTime(type === 'stone' ? 98 : 180, now + 0.08);
+    osc1.type = type === 'tick' ? 'square' : 'triangle';
+    osc1.frequency.setValueAtTime(type === 'stone' ? 190 : type === 'tick' ? 880 : 360, now);
+    osc1.frequency.exponentialRampToValueAtTime(type === 'stone' ? 98 : type === 'tick' ? 620 : 180, now + 0.08);
     gain1.gain.setValueAtTime(0.001, now);
-    gain1.gain.exponentialRampToValueAtTime(type === 'stone' ? 0.9 : 0.45, now + 0.008);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+    gain1.gain.exponentialRampToValueAtTime(type === 'stone' ? 0.9 : type === 'tick' ? 0.75 : 0.45, now + 0.008);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + (type === 'tick' ? 0.18 : 0.11));
     osc1.connect(gain1).connect(master);
     osc1.start(now);
-    osc1.stop(now + 0.12);
+    osc1.stop(now + (type === 'tick' ? 0.18 : 0.12));
 
     const noise = ctx.createBufferSource();
     const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
@@ -1482,15 +1519,15 @@
     noise.buffer = noiseBuffer;
     const band = ctx.createBiquadFilter();
     band.type = 'bandpass';
-    band.frequency.value = type === 'stone' ? 850 : 1200;
+    band.frequency.value = type === 'stone' ? 850 : type === 'tick' ? 1600 : 1200;
     band.Q.value = 1.1;
     const ng = ctx.createGain();
     ng.gain.setValueAtTime(0.001, now);
-    ng.gain.exponentialRampToValueAtTime(type === 'stone' ? 0.33 : 0.18, now + 0.005);
-    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    ng.gain.exponentialRampToValueAtTime(type === 'stone' ? 0.33 : type === 'tick' ? 0.26 : 0.18, now + 0.005);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + (type === 'tick' ? 0.08 : 0.05));
     noise.connect(band).connect(ng).connect(master);
     noise.start(now);
-    noise.stop(now + 0.055);
+    noise.stop(now + (type === 'tick' ? 0.08 : 0.055));
   }
 
   function fanfare(win) {
@@ -1629,8 +1666,6 @@
 
   async function claimOnlineTimeoutLoss() {
     if (!isOnlineMode() || !(state.online.roomId || state.online.roomCode) || state.timeoutClaiming || !window.firebase || !firebase.database) return;
-    const mySide = getMySide();
-    if (state.turn !== mySide) return;
     state.timeoutClaiming = true;
     try {
       const path = getRoomPath(state.online.roomId || state.online.roomCode);
@@ -1640,9 +1675,11 @@
       if (!room || room.status !== 'playing') return;
       const expiresAt = Number(room.turnExpiresAt || 0);
       if (expiresAt && Date.now() < expiresAt) return;
+      const loserSide = Number(room.turn || HUMAN);
+      const winnerSide = loserSide === HUMAN ? AI : HUMAN;
       await ref.update({
         status: 'finished',
-        winner: getOpponentSide(),
+        winner: winnerSide,
         winningLine: [],
         timeoutReason: 'clock',
         finishedAt: Date.now(),
@@ -1668,7 +1705,8 @@
         state.turnLastAudioSecond = secs;
         try {
           initAudio();
-          hitSound('ui');
+          hitSound('tick');
+          speakSafe(String(secs), 0.78, 1.18);
         } catch {}
       }
       if (secs <= 0) {
@@ -2005,6 +2043,7 @@
   function renderOpenRooms(rooms) {
     if (!ui.openRoomsPanel || !ui.openRoomsList) return;
     ui.openRoomsPanel.classList.remove('hidden');
+    ui.openRoomsList.classList.toggle('single-room', rooms.length === 1);
     if (!rooms.length) {
       ui.openRoomsList.innerHTML = '<div class="fa-room-empty">No open rooms right now.</div>';
       return;
@@ -2215,7 +2254,7 @@
     state.online.status = room.status;
     attachOnlineRoom(roomId);
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
-    if (ui.roomStatus) ui.roomStatus.textContent = `Joined ${room.title || 'room'} · Ready up to start.`;
+    if (ui.roomStatus) ui.roomStatus.textContent = `Joined ${room.title || 'room'} · Press Ready to enter the duel.`;
     openStartScreen();
     syncUI();
   }
@@ -2240,24 +2279,49 @@
       return;
     }
 
-    const readyKey = state.online.role === 'guest' ? 'guestReady' : 'hostReady';
-    const next = {
-      [readyKey]: true,
-      status: (room.hostReady || readyKey === 'hostReady') && (room.guestReady || readyKey === 'guestReady') ? 'countdown' : 'ready',
-      countdownAt: (room.hostReady || readyKey === 'hostReady') && (room.guestReady || readyKey === 'guestReady') ? Date.now() : null,
-      winner: 0,
-      winningLine: [],
-      board: createBoard(),
-      turn: HUMAN,
-      turnExpiresAt: (room.hostReady || readyKey === 'hostReady') && (room.guestReady || readyKey === 'guestReady') ? Date.now() + TURN_LIMIT_MS : 0,
-      moveCount: 0,
-      lastMove: null,
-      updatedAt: Date.now()
-    };
-    await ref.update(next);
-    if (next.status === 'ready') {
-      ui.roomStatus.textContent = 'Ready locked. Waiting for your friend to press Game Start.';
+    const amHost = state.online.role === 'host';
+    const amGuest = state.online.role === 'guest';
+    if (amGuest) {
+      if (room.guestReady) {
+        ui.roomStatus.textContent = 'Ready locked. Waiting for the host to start.';
+        openStartScreen();
+        syncUI();
+        return;
+      }
+      await ref.update({
+        guestReady: true,
+        hostReady: !!room.hostReady,
+        status: 'ready',
+        updatedAt: Date.now()
+      });
+      ui.roomStatus.textContent = 'Ready locked. Waiting for the host to start.';
       openStartScreen();
+      syncUI();
+      return;
+    }
+
+    if (amHost) {
+      if (!room.guestReady) {
+        ui.roomStatus.textContent = 'Your friend must press Ready first.';
+        openStartScreen();
+        syncUI();
+        return;
+      }
+      await ref.update({
+        hostReady: true,
+        status: 'countdown',
+        countdownAt: Date.now(),
+        winner: 0,
+        winningLine: [],
+        board: createBoard(),
+        turn: HUMAN,
+        turnExpiresAt: 0,
+        moveCount: 0,
+        lastMove: null,
+        updatedAt: Date.now()
+      });
+      ui.roomStatus.textContent = 'Starting duel...';
+      return;
     }
   }
 
@@ -2299,7 +2363,7 @@
     if (isOnlineMode()) {
       if (!(state.online.roomId || state.online.roomCode)) ui.lobbyText.textContent = 'Create your room title or open the room list, then start your online friendly match.';
       else if (state.online.status === 'waiting') ui.lobbyText.textContent = `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' (' + state.online.roomCode + ')' : ''} is ready. ${state.online.roomCode ? 'Share the code and wait for your friend.' : 'Your friend can join from the room list.'}`;
-      else if (state.online.status === 'ready') ui.lobbyText.textContent = `Both players need to press Game Start. ${state.online.hostReady ? 'Host ready' : 'Host waiting'} · ${state.online.guestReady ? 'Guest ready' : 'Guest waiting'}.`;
+      else if (state.online.status === 'ready') ui.lobbyText.textContent = state.online.role === 'host' ? `${state.online.guestReady ? 'Guest ready. Press Start to begin the duel.' : 'Waiting for your friend to press Ready.'}` : `${state.online.guestReady ? 'Ready locked. Waiting for the host to start.' : 'Press Ready to join the duel.'}`;
       else ui.lobbyText.textContent = `Online room ${state.online.roomTitle || (state.online.roomCode || 'Open Room')} synced.`;
     } else {
       ui.lobbyText.textContent = state.profile ? 'Press the center button to begin your next ranked match.' : 'Create your name, then begin your climb on the ladder.';
@@ -2387,9 +2451,45 @@
     if (ui.modeAi) ui.modeAi.classList.toggle('active', !isOnlineMode());
     if (ui.modeFriend) ui.modeFriend.classList.toggle('active', isOnlineMode());
     if (ui.roomCodeView) ui.roomCodeView.textContent = (state.online.roomId || state.online.roomCode) ? `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' · ' + state.online.roomCode : ' · Open'}` : 'Room: ——';
-    if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? `Ready check · ${state.online.hostReady ? 'Host ready' : 'Host waiting'} / ${state.online.guestReady ? 'Guest ready' : 'Guest waiting'}` : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s` : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
+    if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? (state.online.role === 'host' ? (state.online.guestReady ? 'Guest ready · press Start.' : 'Waiting for your friend to press Ready.') : (state.online.guestReady ? 'Ready locked · waiting for host start.' : 'Press Ready to enter the duel.')) : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s` : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
     if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !(state.online.roomId || state.online.roomCode));
     ui.connectionNote.textContent = isOnlineMode() ? ((state.online.roomId || state.online.roomCode) ? `Online room ${state.online.roomTitle || (state.online.roomCode || 'Open')}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
+
+    if (ui.saveStart) {
+      let label = 'Game Start';
+      let disabled = false;
+      let active = false;
+      if (isOnlineMode()) {
+        if (!(state.online.roomId || state.online.roomCode)) {
+          label = 'Game Start';
+        } else if (state.online.status === 'waiting') {
+          if (state.online.role === 'host') {
+            label = 'Waiting for Join';
+            disabled = true;
+          } else {
+            label = 'Ready';
+          }
+        } else if (state.online.status === 'ready') {
+          if (state.online.role === 'guest') {
+            label = state.online.guestReady ? 'Ready ✓' : 'Ready';
+            active = !!state.online.guestReady;
+          } else {
+            label = state.online.guestReady ? 'Start' : 'Wait for Ready';
+            disabled = !state.online.guestReady;
+          }
+        } else if (state.online.status === 'countdown') {
+          label = 'Starting...';
+          disabled = true;
+        } else if (state.online.status === 'playing') {
+          label = 'In Match';
+          disabled = true;
+        }
+      }
+      ui.saveStart.textContent = label;
+      ui.saveStart.disabled = !!disabled;
+      ui.saveStart.classList.toggle('ready-active', !!active);
+      ui.saveStart.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
     syncLobbyActions();
     updateFullscreenButtons();
     updateTurnTimerLabel();
