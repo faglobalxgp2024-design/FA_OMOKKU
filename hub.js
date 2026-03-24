@@ -125,8 +125,9 @@
     fullscreenRequested: false,
     lastResult: null,
     lobbyConfirmed: false,
-    pendingHumanMove: null,
-    countdownActive: false
+    pendingMove: null,
+    countdownActive: false,
+    voiceEnabled: true
   };
 
   const ui = {};
@@ -368,6 +369,14 @@
               <div class="fa-board-wrap" id="fa-board-wrap">
                 <canvas id="fa-board" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}"></canvas>
 
+                <div class="fa-countdown hidden" id="fa-countdown-overlay">
+                  <div class="fa-countdown-num" id="fa-countdown-text">3</div>
+                </div>
+
+                <div class="fa-place-action hidden" id="fa-place-action">
+                  <button class="fa-btn primary big" id="fa-place-btn">착수</button>
+                </div>
+
                 <div class="fa-stage fa-intro" id="fa-start-screen">
                   <div class="fa-stage-card lobby">
                     <div class="fa-stage-eyebrow">RANKED MATCH</div>
@@ -425,14 +434,6 @@
                       <button class="fa-btn ghost" id="fa-overlay-lobby-btn">Lobby</button>
                     </div>
                   </div>
-                </div>
-
-                <div class="fa-place-action hidden" id="fa-place-action">
-                  <button class="fa-place-btn" id="fa-confirm-move-btn">Place Stone</button>
-                </div>
-
-                <div class="fa-countdown hidden" id="fa-countdown">
-                  <div class="fa-countdown-number" id="fa-countdown-number">3</div>
                 </div>
 
                 <div class="fa-floating-game-actions hidden" id="fa-floating-game-actions">
@@ -741,39 +742,6 @@
       }
       .fa-stage-actions.split .fa-btn { min-width: 140px; }
 
-      .fa-place-action {
-        position: absolute;
-        left: 50%;
-        bottom: 20px;
-        transform: translateX(-50%);
-        z-index: 4;
-      }
-      .fa-place-action.hidden { display: none; }
-      .fa-place-btn {
-        appearance: none; border: 1px solid rgba(151,255,124,.42); outline: none;
-        min-width: 168px; height: 64px; padding: 0 28px;
-        border-radius: 999px; cursor: pointer;
-        background: radial-gradient(circle at 50% 20%, rgba(255,255,255,.22), transparent 34%), linear-gradient(180deg, #2f4f24 0%, #193114 50%, #0f200d 100%);
-        box-shadow: 0 14px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 0 3px rgba(110,199,75,.25);
-        color: #f5fff1; font-size: 26px; font-weight: 900; letter-spacing: .01em;
-      }
-      .fa-place-btn:active { transform: translateY(1px); }
-      .fa-countdown {
-        position: absolute; inset: 0; z-index: 7;
-        display: grid; place-items: center;
-        background: radial-gradient(circle at center, rgba(8,11,17,.24), rgba(5,7,12,.62));
-        pointer-events: none;
-      }
-      .fa-countdown.hidden { display: none; }
-      .fa-countdown-number {
-        min-width: 180px; padding: 22px 28px; text-align: center;
-        border-radius: 28px;
-        background: linear-gradient(180deg, rgba(14,18,27,.9), rgba(10,13,20,.94));
-        border: 1px solid rgba(255,255,255,.10);
-        box-shadow: 0 24px 70px rgba(0,0,0,.46);
-        font-size: 64px; font-weight: 900; letter-spacing: .04em; color: #f6f7fb;
-      }
-
       .fa-floating-game-actions {
         position: absolute;
         right: 18px;
@@ -875,6 +843,36 @@
       .fa-modal-title { font-weight: 900; font-size: 24px; }
       .fa-modal-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
       .fa-modal-body { padding: 16px 18px 18px; overflow: auto; max-height: calc(88vh - 92px); }
+
+      .fa-place-action {
+        position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 14;
+        pointer-events: none;
+      }
+      .fa-place-action .fa-btn { pointer-events: auto; min-width: 132px; }
+      .fa-countdown {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        z-index: 16; background: radial-gradient(circle at center, rgba(0,0,0,.08), rgba(0,0,0,.32));
+        backdrop-filter: blur(2px);
+      }
+      .fa-countdown-num {
+        min-width: 180px; min-height: 180px; border-radius: 999px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: clamp(48px, 10vw, 96px); font-weight: 1000; letter-spacing: -.04em;
+        color: #fff8e6; text-shadow: 0 8px 30px rgba(0,0,0,.35);
+        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.32), rgba(255,255,255,.08)), linear-gradient(180deg, rgba(82,224,145,.96), rgba(21,142,69,.96));
+        box-shadow: 0 22px 60px rgba(0,0,0,.28), inset 0 2px 14px rgba(255,255,255,.22);
+        border: 1px solid rgba(255,255,255,.22);
+      }
+      .fa-countdown.start .fa-countdown-num {
+        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.36), rgba(255,255,255,.10)), linear-gradient(180deg, rgba(255,214,92,.98), rgba(255,149,0,.95));
+      }
+      .fa-board-wrap.locked #fa-board { pointer-events: none; }
+      .fa-board-wrap .fa-stage,
+      .fa-board-wrap .fa-overlay,
+      .fa-board-wrap .fa-countdown { border-radius: 26px; }
+      .fa-board-wrap .fa-place-action.hidden,
+      .fa-board-wrap .fa-countdown.hidden { display: none; }
+
       .fa-confirm-card { width: min(100%, 420px); }
       .fa-confirm-icon {
         width: 62px; height: 62px; margin: 0 auto;
@@ -922,9 +920,6 @@
         .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
           margin: auto 0;
         }
-        .fa-place-action { bottom: max(14px, env(safe-area-inset-bottom)); }
-        .fa-place-btn { min-width: 150px; height: 58px; font-size: 22px; }
-        .fa-countdown-number { min-width: 150px; font-size: 54px; }
         .fa-floating-game-actions { right: 12px; bottom: 12px; }
         .fa-floating-game-actions .fa-btn { min-width: 138px; padding: 11px 14px; }
         .mobile-only { display: inline-flex; }
@@ -997,13 +992,13 @@
     ui.lobbyConfirmActions = root.querySelector('#fa-lobby-confirm-actions');
     ui.lobbyStartActions = root.querySelector('#fa-lobby-start-actions');
     ui.confirmProfileBtn = root.querySelector('#fa-confirm-profile-btn');
-    ui.placeAction = root.querySelector('#fa-place-action');
-    ui.confirmMoveBtn = root.querySelector('#fa-confirm-move-btn');
-    ui.countdown = root.querySelector('#fa-countdown');
-    ui.countdownNumber = root.querySelector('#fa-countdown-number');
     ui.floatingGameActions = root.querySelector('#fa-floating-game-actions');
     ui.floatingFullscreen = root.querySelector('#fa-floating-fullscreen');
     ui.floatingExitFullscreen = root.querySelector('#fa-floating-exit-fullscreen');
+    ui.placeAction = root.querySelector('#fa-place-action');
+    ui.placeBtn = root.querySelector('#fa-place-btn');
+    ui.countdownOverlay = root.querySelector('#fa-countdown-overlay');
+    ui.countdownText = root.querySelector('#fa-countdown-text');
 
     root.querySelector('#fa-open-leaderboard').addEventListener('click', openLeaderboard);
     root.querySelector('#fa-close-leaderboard').addEventListener('click', closeLeaderboard);
@@ -1020,9 +1015,9 @@
     root.querySelector('#fa-back-lobby-btn').addEventListener('click', backToLobby);
     root.querySelector('#fa-confirm-cancel').addEventListener('click', closeConfirm);
     root.querySelector('#fa-mobile-fullscreen-btn').addEventListener('click', () => { requestMobileFullscreen(true); startGameFromLobby(); });
-    ui.confirmMoveBtn.addEventListener('click', confirmPendingMove);
     root.querySelector('#fa-floating-fullscreen').addEventListener('click', () => requestMobileFullscreen(true));
     root.querySelector('#fa-floating-exit-fullscreen').addEventListener('click', exitMobileFullscreen);
+    ui.placeBtn.addEventListener('click', confirmPendingMove);
 
     ui.board.addEventListener('click', onBoardClick);
     ui.board.addEventListener('dblclick', e => e.preventDefault());
@@ -1056,8 +1051,76 @@
     } catch {}
   }
 
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+
+  function speakSafe(text, rate = 0.72, pitch = 1.25) {
+    try {
+      if (!state.voiceEnabled || !window.speechSynthesis || !text) return;
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance(String(text));
+      utter.lang = 'en-US';
+      utter.rate = rate;
+      utter.pitch = pitch;
+      const voices = synth.getVoices ? synth.getVoices() : [];
+      if (voices && voices.length) {
+        utter.voice = voices.find(v => /^en(-|_)/i.test(v.lang || '') || /english/i.test(v.name || '')) || voices[0];
+      }
+      synth.cancel();
+      synth.speak(utter);
+    } catch (e) {
+      console.log('voice error ignored:', e);
+    }
+  }
+
+  function setCountdownVisible(show, text = '3', startTone = false) {
+    if (!ui.countdownOverlay || !ui.countdownText) return;
+    ui.countdownText.textContent = text;
+    ui.countdownOverlay.classList.toggle('hidden', !show);
+    ui.countdownOverlay.classList.toggle('start', !!startTone);
+  }
+
+  function showPendingMoveAction(show) {
+    if (!ui.placeAction) return;
+    ui.placeAction.classList.toggle('hidden', !show);
+    ui.boardWrap.classList.toggle('locked', !!state.countdownActive);
+  }
+
+  function clearPendingMove() {
+    state.pendingMove = null;
+    showPendingMoveAction(false);
+    renderBoard();
+  }
+
+  async function startCountdownAndBeginMatch() {
+    if (state.countdownActive) return;
+    state.countdownActive = true;
+    showPendingMoveAction(false);
+    setCountdownVisible(true, '3', false);
+    syncUI();
+
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const steps = [
+      { label: '3', say: 'three', rate: 0.68, pitch: 1.18, wait: 980 },
+      { label: '2', say: 'two', rate: 0.68, pitch: 1.18, wait: 980 },
+      { label: '1', say: 'one', rate: 0.68, pitch: 1.18, wait: 980 },
+      { label: 'START!', say: 'game start!', rate: 0.9, pitch: 1.5, wait: 900, startTone: true }
+    ];
+
+    try {
+      initAudio();
+      for (const step of steps) {
+        setCountdownVisible(true, step.label, !!step.startTone);
+        speakSafe(step.say, step.rate, step.pitch);
+        if (state.audio) {
+          try { hitSound(step.startTone ? 'win' : 'stone'); } catch {}
+        }
+        await delay(step.wait);
+      }
+    } finally {
+      setCountdownVisible(false, '', false);
+      state.countdownActive = false;
+      prepareMatch();
+      syncUI();
+    }
   }
 
   function hitSound(type = 'stone') {
@@ -1116,106 +1179,6 @@
     });
   }
 
-  function playCountdownChime(step) {
-    if (!state.audio) return;
-    const ctx = state.audio;
-    const now = ctx.currentTime;
-    const noteSets = {
-      count: [660, 880],
-      start: [784, 1046, 1318]
-    };
-    const notes = noteSets[step] || noteSets.count;
-    notes.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = idx === notes.length - 1 ? 'triangle' : 'sine';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.05);
-      gain.gain.setValueAtTime(0.001, now + idx * 0.05);
-      gain.gain.exponentialRampToValueAtTime(step === 'start' ? 0.12 : 0.08, now + idx * 0.05 + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + (step === 'start' ? 0.22 : 0.16));
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now + idx * 0.05);
-      osc.stop(now + idx * 0.05 + (step === 'start' ? 0.24 : 0.18));
-    });
-  }
-
-  function speakCountdownText(text, mode = 'count') {
-    try {
-      if (!('speechSynthesis' in window)) return;
-      const target = String(text);
-      const utter = new SpeechSynthesisUtterance(target);
-      utter.lang = /^\d+$/.test(target) ? 'en-US' : 'ko-KR';
-      const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
-      const preferred = voices.find(v => /ko|Korean/i.test(`${v.lang} ${v.name}`))
-        || voices.find(v => /en-US|en_US/i.test(v.lang || ''))
-        || null;
-      if (preferred) utter.voice = preferred;
-      utter.rate = mode === 'start' ? 1.12 : 1.08;
-      utter.pitch = mode === 'start' ? 1.45 : 1.3;
-      utter.volume = 1;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utter);
-    } catch {}
-  }
-
-  async function playCountdownStart() {
-    if (state.countdownActive) return false;
-    state.countdownActive = true;
-    if (ui.countdown) ui.countdown.classList.remove('hidden');
-    const sequence = ['3', '2', '1', 'Start!'];
-    for (const item of sequence) {
-      if (ui.countdownNumber) ui.countdownNumber.textContent = item;
-      if (item === 'Start!') {
-        playCountdownChime('start');
-        speakCountdownText('게임 스타트!', 'start');
-        await sleep(900);
-      } else {
-        playCountdownChime('count');
-        speakCountdownText(item, 'count');
-        await sleep(720);
-      }
-    }
-    if (ui.countdown) ui.countdown.classList.add('hidden');
-    state.countdownActive = false;
-    return true;
-  }
-
-  function clearPendingMove(shouldRender = true) {
-    state.pendingHumanMove = null;
-    if (shouldRender) renderBoard();
-  }
-
-  function updatePlaceButton() {
-    if (!ui.placeAction) return;
-    const show = !!(state.phase === 'playing' && state.started && !state.gameOver && !state.paused && state.turn === HUMAN && state.pendingHumanMove);
-    ui.placeAction.classList.toggle('hidden', !show);
-  }
-
-  function confirmPendingMove() {
-    const pos = state.pendingHumanMove;
-    if (!pos) return;
-    if (!state.profile) {
-      openStartScreen();
-      return;
-    }
-    if (!state.started || state.phase !== 'playing' || state.turn !== HUMAN || state.gameOver || state.pendingLock || state.paused) return;
-    if (state.board[pos.y][pos.x] !== EMPTY) {
-      clearPendingMove();
-      updatePlaceButton();
-      return;
-    }
-
-    placeMove(pos.x, pos.y, HUMAN);
-    clearPendingMove(false);
-    updatePlaceButton();
-    if (state.gameOver) return;
-
-    state.turn = AI;
-    syncUI();
-    state.pendingLock = true;
-    setTimeout(aiTurn, 150 + Math.min(350, state.streak * 35));
-  }
-
   function updateLobbyProfileUI() {
     const locked = !!(state.profile && state.profile.nickname);
     if (ui.nicknameEditor) ui.nicknameEditor.classList.toggle('hidden', locked);
@@ -1269,12 +1232,10 @@
 
     state.lobbyConfirmed = true;
     saveState();
-    updatePlaceButton();
     renderLobbyStatus();
     updateAvatars();
     updateLobbyProfileUI();
     syncLobbyActions();
-    updatePlaceButton();
     updateFullscreenButtons();
     ui.nickNote.textContent = 'Nickname locked. Press Game Start, or use Play Fullscreen on mobile.';
     syncLobbyActions();
@@ -1288,21 +1249,18 @@
       const ok = await confirmLobbyProfile();
       if (!ok) return;
     }
-    closeStartScreen();
-    const counted = await playCountdownStart();
-    if (!counted) return;
     state.started = true;
-    state.phase = 'playing';
+    state.phase = 'countdown';
     state.paused = false;
     renderLobbyStatus();
     updateAvatars();
     updateLobbyProfileUI();
     syncLobbyActions();
-    updatePlaceButton();
     updateFullscreenButtons();
-    prepareMatch();
+    closeStartScreen();
     requestMobileFullscreen(state.fullscreenRequested);
     syncUI();
+    await startCountdownAndBeginMatch();
   }
 
   function syncLobbyActions() {
@@ -1325,26 +1283,24 @@
       openStartScreen();
       return;
     }
-    clearPendingMove(false);
     state.started = false;
-    state.phase = 'intro';
     state.paused = false;
-    state.gameOver = false;
+    state.phase = 'intro';
+    clearPendingMove();
     closePauseScreen();
     closeOverlay();
     openStartScreen();
     syncUI();
-    renderBoard();
   }
 
   function prepareMatch() {
     state.board = createBoard();
-    state.pendingHumanMove = null;
     state.turn = HUMAN;
     state.gameOver = false;
     state.winner = 0;
     state.lastMove = null;
     state.pendingLock = false;
+    state.pendingMove = null;
     state.moveCount = 0;
     state.review = [];
     state.reviewIndex = 0;
@@ -1354,6 +1310,8 @@
     state.phase = 'playing';
     closePauseScreen();
     closeOverlay();
+    setCountdownVisible(false, '', false);
+    showPendingMoveAction(false);
     updateMobileMode();
     syncUI();
     renderBoard();
@@ -1386,11 +1344,12 @@
   }
 
   function backToLobby() {
-    clearPendingMove(false);
     state.lobbyConfirmed = !!(state.profile && state.profile.nickname);
     state.paused = false;
     state.started = false;
     state.phase = 'intro';
+    clearPendingMove();
+    setCountdownVisible(false, '', false);
     closePauseScreen();
     closeOverlay();
     exitMobileFullscreen();
@@ -1400,10 +1359,11 @@
   }
 
   function openStartScreen() {
-    clearPendingMove(false);
     ui.startScreen.classList.remove('hidden');
     state.phase = 'intro';
     state.started = false;
+    clearPendingMove();
+    setCountdownVisible(false, '', false);
     state.lobbyConfirmed = !!(state.profile && state.profile.nickname);
     updateLobbyProfileUI();
     renderLobbyStatus();
@@ -1525,7 +1485,6 @@
     updateAvatars();
     updateLobbyProfileUI();
     syncLobbyActions();
-    updatePlaceButton();
     updateFullscreenButtons();
   }
 
@@ -1674,7 +1633,7 @@
       openStartScreen();
       return;
     }
-    if (!state.started || state.phase !== 'playing' || state.turn !== HUMAN || state.gameOver || state.pendingLock || state.paused) return;
+    if (!state.started || state.phase !== 'playing' || state.turn !== HUMAN || state.gameOver || state.pendingLock || state.paused || state.countdownActive) return;
 
     const rect = ui.board.getBoundingClientRect();
     const scaleX = ui.board.width / rect.width;
@@ -1683,13 +1642,33 @@
     if (!pos) return;
     if (state.board[pos.y][pos.x] !== EMPTY) return;
 
-    state.pendingHumanMove = pos;
+    state.pendingMove = { x: pos.x, y: pos.y, side: HUMAN };
+    showPendingMoveAction(true);
     renderBoard();
-    updatePlaceButton();
+    syncUI();
+  }
+
+  function confirmPendingMove() {
+    const pos = state.pendingMove;
+    if (!pos) return;
+    if (!state.started || state.phase !== 'playing' || state.turn !== HUMAN || state.gameOver || state.pendingLock || state.paused || state.countdownActive) return;
+    if (state.board[pos.y][pos.x] !== EMPTY) {
+      clearPendingMove();
+      return;
+    }
+
+    showPendingMoveAction(false);
+    placeMove(pos.x, pos.y, HUMAN);
+    state.pendingMove = null;
+    if (state.gameOver) return;
+
+    state.turn = AI;
+    syncUI();
+    state.pendingLock = true;
+    setTimeout(aiTurn, 150 + Math.min(350, state.streak * 35));
   }
 
   function placeMove(x, y, side) {
-    state.pendingHumanMove = null;
     state.board[y][x] = side;
     state.lastMove = { x, y, side };
     state.moveCount += 1;
@@ -1788,7 +1767,6 @@
 
   function aiTurn() {
     if (state.gameOver || state.phase !== 'playing') return;
-    clearPendingMove(false);
     const profile = getAiProfile();
     const move = chooseAiMove(state.board, profile);
     state.pendingLock = false;
@@ -2177,10 +2155,6 @@
       }
     }
 
-    if (state.pendingHumanMove && state.phase === 'playing' && state.turn === HUMAN && !state.gameOver && !state.paused) {
-      drawTouchMarker(ctx, boardCoord(state.pendingHumanMove.x), boardCoord(state.pendingHumanMove.y));
-    }
-
     if (last) {
       ctx.save();
       ctx.beginPath();
@@ -2190,31 +2164,24 @@
       ctx.stroke();
       ctx.restore();
     }
-  }
 
-  function drawTouchMarker(ctx, x, y) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,72,34,.98)';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    const s = 16;
-    const gap = 8;
-
-    ctx.beginPath();
-    ctx.moveTo(x - s, y - s + gap);
-    ctx.lineTo(x - s, y - s);
-    ctx.lineTo(x - s + gap, y - s);
-    ctx.moveTo(x + s - gap, y - s);
-    ctx.lineTo(x + s, y - s);
-    ctx.lineTo(x + s, y - s + gap);
-    ctx.moveTo(x - s, y + s - gap);
-    ctx.lineTo(x - s, y + s);
-    ctx.lineTo(x - s + gap, y + s);
-    ctx.moveTo(x + s - gap, y + s);
-    ctx.lineTo(x + s, y + s);
-    ctx.lineTo(x + s, y + s - gap);
-    ctx.stroke();
-    ctx.restore();
+    if (!overrideBoard && state.pendingMove && !state.gameOver && state.phase === 'playing') {
+      const px = boardCoord(state.pendingMove.x);
+      const py = boardCoord(state.pendingMove.y);
+      const gap = 13;
+      const len = 11;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,58,38,.96)';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(px - gap - len, py - gap - len); ctx.lineTo(px - gap, py - gap);
+      ctx.moveTo(px + gap + len, py - gap - len); ctx.lineTo(px + gap, py - gap);
+      ctx.moveTo(px - gap - len, py + gap + len); ctx.lineTo(px - gap, py + gap);
+      ctx.moveTo(px + gap + len, py + gap + len); ctx.lineTo(px + gap, py + gap);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   function drawStone(ctx, x, y, type) {
@@ -2298,7 +2265,6 @@
     const should = window.innerWidth <= 740 && state.started && state.phase !== 'intro' && state.fullscreenRequested;
     if (should) document.body.classList.add('fa-mobile-fullscreen');
     else document.body.classList.remove('fa-mobile-fullscreen');
-    updatePlaceButton();
     updateFullscreenButtons();
   }
 
