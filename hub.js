@@ -130,7 +130,8 @@
     voiceEnabled: true,
     voicesLoaded: false,
     cachedVoices: [],
-    preferredVoice: null
+    preferredVoice: null,
+    winBurstTimer: null
   };
 
   const ui = {};
@@ -379,6 +380,7 @@
                 <div class="fa-place-action hidden" id="fa-place-action">
                   <button class="fa-btn primary big" id="fa-place-btn">Place</button>
                 </div>
+                <div class="fa-win-burst hidden" id="fa-win-burst" aria-hidden="true"></div>
 
                 <div class="fa-stage fa-intro" id="fa-start-screen">
                   <div class="fa-stage-card lobby">
@@ -869,6 +871,25 @@
         pointer-events: none;
       }
       .fa-place-action .fa-btn { pointer-events: auto; min-width: 132px; }
+      .fa-win-burst {
+        position: absolute; inset: 0; z-index: 12; pointer-events: none; overflow: hidden;
+      }
+      .fa-win-burst.hidden { display: none; }
+      .fa-win-spark {
+        position: absolute; width: 14px; height: 14px; border-radius: 999px;
+        background: radial-gradient(circle at 30% 30%, rgba(255,252,232,.98), rgba(255,207,92,.92) 42%, rgba(168,96,21,.08) 72%, transparent 73%);
+        box-shadow: 0 0 18px rgba(255,219,116,.58);
+        animation: faWinSpark 980ms cubic-bezier(.18,.78,.24,1) forwards;
+      }
+      .fa-win-spark.alt {
+        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.96), rgba(158,255,210,.9) 42%, rgba(38,126,87,.08) 72%, transparent 73%);
+        box-shadow: 0 0 18px rgba(110,232,168,.52);
+      }
+      @keyframes faWinSpark {
+        0% { transform: translate3d(0,0,0) scale(.2); opacity: 0; }
+        14% { opacity: 1; }
+        100% { transform: translate3d(var(--dx, 0px), var(--dy, -120px), 0) scale(1.3); opacity: 0; }
+      }
       .fa-countdown {
         position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
         z-index: 16; background: radial-gradient(circle at center, rgba(57,34,15,.06), rgba(23,13,7,.28));
@@ -918,7 +939,7 @@
         border-radius: 0;
         border: 0;
         min-height: 100vh;
-        background: #05070c;
+        background: linear-gradient(180deg, #3c2414 0%, #25160c 100%);
       }
       body.fa-mobile-fullscreen .fa-board-wrap {
         min-height: 100vh;
@@ -1222,6 +1243,68 @@
     state.pendingMove = null;
     showPendingMoveAction(false);
     renderBoard();
+  }
+
+  function triggerHaptic(kind = 'tap') {
+    try {
+      if (!navigator.vibrate) return;
+      const pattern = kind === 'win'
+        ? [18, 40, 24, 44, 34]
+        : kind === 'loss'
+          ? [34, 60, 18]
+          : kind === 'place'
+            ? [12]
+            : [8];
+      navigator.vibrate(pattern);
+    } catch {}
+  }
+
+  function playUiTap() {
+    if (!state.audio) return;
+    const ctx = state.audio;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.exponentialRampToValueAtTime(330, now + 0.06);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.09);
+  }
+
+  function triggerWinBurst(type = 'win') {
+    if (!ui.winBurst) return;
+    ui.winBurst.innerHTML = '';
+    ui.winBurst.classList.remove('hidden');
+    const count = type === 'win' ? 22 : 12;
+    for (let i = 0; i < count; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'fa-win-spark' + ((type === 'win' && i % 3 === 0) || (type !== 'win' && i % 2 === 0) ? ' alt' : '');
+      const x = 14 + Math.random() * 72;
+      const y = 22 + Math.random() * 46;
+      const dx = (Math.random() * 240 - 120).toFixed(0) + 'px';
+      const dy = (-70 - Math.random() * 180).toFixed(0) + 'px';
+      const delay = (Math.random() * 180).toFixed(0) + 'ms';
+      const dur = (780 + Math.random() * 340).toFixed(0) + 'ms';
+      dot.style.left = x + '%';
+      dot.style.top = y + '%';
+      dot.style.setProperty('--dx', dx);
+      dot.style.setProperty('--dy', dy);
+      dot.style.animationDelay = delay;
+      dot.style.animationDuration = dur;
+      ui.winBurst.appendChild(dot);
+    }
+    clearTimeout(state.winBurstTimer);
+    state.winBurstTimer = setTimeout(() => {
+      if (!ui.winBurst) return;
+      ui.winBurst.classList.add('hidden');
+      ui.winBurst.innerHTML = '';
+    }, 1400);
   }
 
   async function startCountdownAndBeginMatch() {
@@ -1793,6 +1876,9 @@
     }
 
     showPendingMoveAction(false);
+    initAudio();
+    playUiTap();
+    triggerHaptic('place');
     placeMove(pos.x, pos.y, HUMAN);
     state.pendingMove = null;
     if (state.gameOver) return;
@@ -1843,6 +1929,8 @@
       state.bestStreak = Math.max(state.bestStreak, state.streak);
       title = 'Victory!';
       text = `Elegant finish. ${getCurrentRankFromState()} · Streak ${state.streak}`;
+      triggerWinBurst('win');
+      triggerHaptic('win');
       fanfare(true);
     } else if (winner === AI) {
       state.totalLosses += 1;
@@ -1850,6 +1938,8 @@
       state.streak = 0;
       title = 'Defeat!';
       text = `The AI held the line. ${getCurrentRankFromState()} · Challenge ${getAiTitle()}`;
+      triggerWinBurst('loss');
+      triggerHaptic('loss');
       fanfare(false);
     }
     saveState();
@@ -2230,20 +2320,42 @@
     ctx.clearRect(0, 0, w, h);
 
     const wood = ctx.createLinearGradient(0, 0, 0, h);
-    wood.addColorStop(0, '#ead098');
-    wood.addColorStop(.48, '#dcb874');
-    wood.addColorStop(1, '#cba25b');
+    wood.addColorStop(0, '#f2d7a0');
+    wood.addColorStop(.18, '#e6c384');
+    wood.addColorStop(.52, '#d8ac65');
+    wood.addColorStop(1, '#bf8746');
     ctx.fillStyle = wood;
     roundRect(ctx, 0, 0, w, h, 24);
     ctx.fill();
 
     ctx.save();
-    ctx.globalAlpha = 0.085;
-    for (let i = 0; i < 140; i++) {
-      const y = (i / 140) * h;
-      ctx.fillStyle = i % 3 === 0 ? '#6b4f1f' : '#8c6a31';
-      ctx.fillRect(0, y, w, 1 + ((i % 5) * 0.4));
+    ctx.globalAlpha = 0.16;
+    for (let i = 0; i < 180; i++) {
+      const y = (i / 180) * h;
+      const wave = Math.sin(i * 0.32) * 8 + Math.cos(i * 0.14) * 4;
+      ctx.fillStyle = i % 4 === 0 ? '#7c5627' : i % 3 === 0 ? '#996731' : '#ad7a3b';
+      ctx.fillRect(0, y, w, 0.7 + ((i % 6) * 0.22));
+      ctx.fillRect(Math.max(0, wave), y, Math.max(0, w - Math.abs(wave)), 0.6);
     }
+    ctx.globalAlpha = 0.08;
+    for (let i = 0; i < 24; i++) {
+      const knotX = ((i * 47) % w);
+      const knotY = 20 + ((i * 83) % (h - 40));
+      ctx.beginPath();
+      ctx.fillStyle = i % 2 ? '#7b4d20' : '#5d3818';
+      ctx.ellipse(knotX, knotY, 18 + (i % 5) * 3, 8 + (i % 4) * 2, (i % 7) * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.save();
+    const sheen = ctx.createLinearGradient(0, 0, w, h);
+    sheen.addColorStop(0, 'rgba(255,244,216,.22)');
+    sheen.addColorStop(.35, 'rgba(255,255,255,.06)');
+    sheen.addColorStop(1, 'rgba(90,49,16,.08)');
+    ctx.fillStyle = sheen;
+    roundRect(ctx, 0, 0, w, h, 24);
+    ctx.fill();
     ctx.restore();
 
     ctx.save();
