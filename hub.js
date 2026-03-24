@@ -1876,13 +1876,26 @@
       return;
     }
     ui.roomStatus.textContent = 'Loading open rooms...';
-    const snap = await firebase.database().ref('omokRooms').once('value');
-    const raw = snap.val() || {};
-    const rooms = Object.values(raw)
-      .filter(room => room && room.status === 'waiting' && room.hostId && !room.guestId)
-      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.remove('hidden');
+    if (ui.openRoomsList) ui.openRoomsList.innerHTML = '<div class="fa-room-empty">Loading…</div>';
+    const collectRooms = async (path) => {
+      try {
+        const snap = await firebase.database().ref(path).once('value');
+        const raw = snap.val() || {};
+        return Object.entries(raw).map(([key, room]) => ({ ...(room || {}), _key: key }))
+          .filter(room => room && room.hostId && !room.guestId && room.status !== 'playing' && room.status !== 'ended')
+          .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
+      } catch (err) {
+        return [];
+      }
+    };
+    let rooms = await collectRooms('omokRooms');
+    if (!rooms.length) {
+      const fallbackRooms = await collectRooms('rooms');
+      if (fallbackRooms.length) rooms = fallbackRooms;
+    }
     renderOpenRooms(rooms);
-    ui.roomStatus.textContent = rooms.length ? 'Choose a room to join.' : 'No open rooms right now.';
+    ui.roomStatus.textContent = rooms.length ? 'Choose a room to join.' : 'No open rooms right now. Pull refresh or tap Refresh.';
   }
 
   async function createOnlineRoom() {
