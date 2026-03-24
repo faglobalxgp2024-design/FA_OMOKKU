@@ -31,6 +31,8 @@
   const GRADE_POINT_STEP = 5;
   const MAX_GRADE_SCORE = (RANKS.length - 1) * GRADE_POINT_STEP;
   const DEFAULT_AVATARS = ['🐻','🐼','🦊','🐯','🐨','🐶','🐱','🐹'];
+  const TURN_LIMIT_MS = 60 * 1000;
+  const ROOM_STALE_MS = 1000 * 60 * 20;
 
   const FirebaseLeaderboardAdapter = {
   mode: 'firebase-ready',
@@ -1061,8 +1063,8 @@
         .fa-start-fields { width: 100%; text-align: left; }
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
         .fa-room-actions input { grid-column: 1 / -1; }
-        .fa-open-rooms-list { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; padding-bottom: 4px; }
-        .fa-room-item { grid-template-columns: minmax(0,1fr) auto; min-width: 300px; flex: 0 0 300px; scroll-snap-align: start; }
+        .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+        .fa-room-item { grid-template-columns: minmax(0,1fr) auto; min-width: 86vw; width: 86vw; max-width: 360px; flex: 0 0 86vw; scroll-snap-align: start; }
         .fa-board-wrap { min-height: 72vh; }
       }
     `;
@@ -1603,6 +1605,85 @@
     ui.lobbyStartActions.classList.toggle('hidden', !state.lobbyConfirmed);
   }
 
+
+  function updateTurnTimerLabel() {
+    if (!ui.turnTimer) return;
+    const visible = isOnlineMode() && state.phase === 'playing' && state.started && !state.gameOver;
+    ui.turnTimer.classList.toggle('hidden', !visible);
+    if (!visible) return;
+    const secs = Math.max(0, Number(state.turnSecondsLeft || 0));
+    ui.turnTimer.textContent = `Turn ${secs}`;
+    ui.turnTimer.classList.toggle('warning', secs <= 15 && secs > 5);
+    ui.turnTimer.classList.toggle('danger', secs <= 5);
+  }
+
+  function stopTurnTimer() {
+    if (state.turnTimerHandle) {
+      clearInterval(state.turnTimerHandle);
+      state.turnTimerHandle = null;
+    }
+    state.turnSecondsLeft = 60;
+    state.turnLastAudioSecond = null;
+    updateTurnTimerLabel();
+  }
+
+  async function claimOnlineTimeoutLoss() {
+    if (!isOnlineMode() || !(state.online.roomId || state.online.roomCode) || state.timeoutClaiming || !window.firebase || !firebase.database) return;
+    const mySide = getMySide();
+    if (state.turn !== mySide) return;
+    state.timeoutClaiming = true;
+    try {
+      const path = getRoomPath(state.online.roomId || state.online.roomCode);
+      const ref = firebase.database().ref(path);
+      const snap = await ref.once('value');
+      const room = snap.val();
+      if (!room || room.status !== 'playing') return;
+      const expiresAt = Number(room.turnExpiresAt || 0);
+      if (expiresAt && Date.now() < expiresAt) return;
+      await ref.update({
+        status: 'finished',
+        winner: getOpponentSide(),
+        winningLine: [],
+        timeoutReason: 'clock',
+        finishedAt: Date.now(),
+        updatedAt: Date.now(),
+        turnExpiresAt: 0
+      });
+    } catch (err) {
+      console.log('timeout claim ignored:', err);
+    } finally {
+      state.timeoutClaiming = false;
+    }
+  }
+
+  function startTurnTimer() {
+    stopTurnTimer();
+    if (!isOnlineMode() || state.phase !== 'playing' || state.gameOver || !state.started) return;
+    const tick = () => {
+      const expiresAt = Number(state.online.turnExpiresAt || 0);
+      const secs = expiresAt ? Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)) : 60;
+      state.turnSecondsLeft = secs;
+      updateTurnTimerLabel();
+      if (secs <= 10 && secs > 0 && state.turnLastAudioSecond !== secs) {
+        state.turnLastAudioSecond = secs;
+        try {
+          initAudio();
+          hitSound('ui');
+        } catch {}
+      }
+      if (secs <= 0) {
+        stopTurnTimer();
+        claimOnlineTimeoutLoss();
+      }
+      if (ui.roomStatus && isOnlineMode() && state.online.status === 'playing') {
+        const turnLabel = state.turn === getMySide() ? 'Your turn' : 'Friend turn';
+        ui.roomStatus.textContent = `${turnLabel} · ${secs}s`;
+      }
+    };
+    tick();
+    state.turnTimerHandle = setInterval(tick, 250);
+  }
+
   function updateFullscreenButtons() {
     if (!ui.floatingGameActions) return;
     const showFloating = state.phase === 'playing' && !state.gameOver && state.started;
@@ -1886,8 +1967,10 @@
       stopTurnTimer();
       state.started = false;
       state.phase = 'intro';
+      openStartScreen();
     } else if (room.status === 'countdown') {
       stopTurnTimer();
+      openStartScreen();
     }
 
     if (room.status === 'finished' && room.finishedAt && state.online.lastFinishedAt !== room.finishedAt) {
@@ -1933,15 +2016,20 @@
       const roomId = escapeHtml(room.id || room._key || '');
       const locked = !!(room.accessCode || room.code);
       const badge = locked
-        ? `<div class="fa-room-item-badge locked">Private · join with code ${accessCode}</div>`
-        : `<div class="fa-room-item-badge open">Open · tap Join</div>`;
+        ? `<div class="fa-room-item-badge locked">Private room · join with code</div>`
+        : `<div class="fa-room-item-badge open">Open room · tap Join</div>`;
       const action = locked
         ? `<button class="fa-btn ghost tiny" data-room-locked="${roomId}">Use Code</button>`
         : `<button class="fa-btn tiny" data-room-id="${roomId}">Join</button>`;
       return `<div class="fa-room-item"><div><div class="fa-room-item-title">${title}</div><div class="fa-room-item-meta">Host ${host}${locked ? ' · Private' : ' · Open'}</div>${badge}</div>${action}</div>`;
     }).join('');
     ui.openRoomsList.querySelectorAll('[data-room-id]').forEach(btn => {
-      btn.addEventListener('click', () => joinOnlineRoom('', btn.getAttribute('data-room-id')));
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const roomId = btn.getAttribute('data-room-id');
+        if (ui.roomStatus) ui.roomStatus.textContent = 'Joining room...';
+        await joinOnlineRoom('', roomId);
+      });
     });
     ui.openRoomsList.querySelectorAll('[data-room-locked]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1970,18 +2058,29 @@
         const raw = snap.val() || {};
         const now = Date.now();
         const rooms = [];
+        const newestByHost = new Map();
         for (const [key, room] of Object.entries(raw)) {
           const item = { ...(room || {}), _key: key, id: room?.id || key };
-          if (!item || !item.hostId) continue;
-          if (item.guestId) continue;
-          if (item.status === 'playing' || item.status === 'finished' || item.status === 'ended') continue;
-          const age = now - Number(item.updatedAt || item.createdAt || 0);
-          if (age > 1000 * 60 * 60 * 12) {
+          if (!item || !item.hostId) {
             try { await firebase.database().ref(path + '/' + key).remove(); } catch {}
             continue;
           }
-          rooms.push(item);
+          const age = now - Number(item.updatedAt || item.createdAt || 0);
+          if (item.status === 'playing' || item.status === 'finished' || item.status === 'ended' || age > ROOM_STALE_MS) {
+            if (age > ROOM_STALE_MS) {
+              try { await firebase.database().ref(path + '/' + key).remove(); } catch {}
+            }
+            continue;
+          }
+          if (item.guestId) continue;
+          const hostKey = String(item.hostId);
+          const prev = newestByHost.get(hostKey);
+          const stamp = Number(item.updatedAt || item.createdAt || 0);
+          if (!prev || stamp > Number(prev.updatedAt || prev.createdAt || 0)) {
+            newestByHost.set(hostKey, item);
+          }
         }
+        newestByHost.forEach(item => rooms.push(item));
         return rooms.sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
       } catch (err) {
         return [];
@@ -2040,7 +2139,7 @@
     state.online.mySide = HUMAN;
     state.online.opponentName = 'Waiting...';
     state.online.status = 'waiting';
-    if (ui.roomStatus) ui.roomStatus.textContent = accessCode ? 'Private room created. Share the title and code.' : 'Open room created. Your friend can join from the room list.';
+    if (ui.roomStatus) ui.roomStatus.textContent = accessCode ? 'Private room created. Share the room title and code.' : 'Open room created. Your friend can join from the room list.';
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
     attachOnlineRoom(roomId);
     syncUI();
@@ -2115,6 +2214,9 @@
     state.online.opponentName = state.online.role === 'host' ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
     state.online.status = room.status;
     attachOnlineRoom(roomId);
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+    if (ui.roomStatus) ui.roomStatus.textContent = `Joined ${room.title || 'room'} · Ready up to start.`;
+    openStartScreen();
     syncUI();
   }
 
@@ -2155,6 +2257,7 @@
     await ref.update(next);
     if (next.status === 'ready') {
       ui.roomStatus.textContent = 'Ready locked. Waiting for your friend to press Game Start.';
+      openStartScreen();
     }
   }
 
@@ -2284,7 +2387,7 @@
     if (ui.modeAi) ui.modeAi.classList.toggle('active', !isOnlineMode());
     if (ui.modeFriend) ui.modeFriend.classList.toggle('active', isOnlineMode());
     if (ui.roomCodeView) ui.roomCodeView.textContent = (state.online.roomId || state.online.roomCode) ? `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' · ' + state.online.roomCode : ' · Open'}` : 'Room: ——';
-    if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? `Ready check · ${state.online.hostReady ? 'Host ready' : 'Host waiting'} / ${state.online.guestReady ? 'Guest ready' : 'Guest waiting'}` : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? `Match in progress · ${Math.max(0, state.turnSecondsLeft)}s` : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
+    if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? `Ready check · ${state.online.hostReady ? 'Host ready' : 'Host waiting'} / ${state.online.guestReady ? 'Guest ready' : 'Guest waiting'}` : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s` : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
     if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !(state.online.roomId || state.online.roomCode));
     ui.connectionNote.textContent = isOnlineMode() ? ((state.online.roomId || state.online.roomCode) ? `Online room ${state.online.roomTitle || (state.online.roomCode || 'Open')}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
     syncLobbyActions();
