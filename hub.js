@@ -135,6 +135,7 @@
     matchMode: 'ai',
     online: {
       roomCode: '',
+      roomTitle: '',
       role: '',
       mySide: HUMAN,
       opponentName: 'Friend',
@@ -410,10 +411,18 @@
                         <div class="fa-room-status" id="fa-room-status">Create or join a room.</div>
                       </div>
                       <div class="fa-room-actions">
-                        <input id="fa-room-code-input" maxlength="8" autocomplete="off" spellcheck="false" placeholder="Enter room code" />
+                        <input id="fa-room-title-input" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Room title" />
+                        <input id="fa-room-code-input" maxlength="8" autocomplete="off" spellcheck="false" placeholder="Enter room code (optional)" />
                         <button class="fa-btn" id="fa-create-room-btn">Create Room</button>
                         <button class="fa-btn" id="fa-join-room-btn">Join Room</button>
                         <button class="fa-btn ghost hidden" id="fa-leave-room-btn">Leave Room</button>
+                      </div>
+                      <div class="fa-open-rooms hidden" id="fa-open-rooms-panel">
+                        <div class="fa-open-rooms-head">
+                          <div class="fa-open-rooms-title">Open Rooms</div>
+                          <button class="fa-btn ghost tiny" id="fa-refresh-rooms-btn">Refresh</button>
+                        </div>
+                        <div class="fa-open-rooms-list" id="fa-open-rooms-list"></div>
                       </div>
                     </div>
                     <div class="fa-lobby-result hidden" id="fa-lobby-result">
@@ -632,9 +641,18 @@
       .fa-friend-top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom: 10px; flex-wrap:wrap; }
       .fa-room-code { font-weight:900; letter-spacing:.08em; color:#ffe7b4; }
       .fa-room-status { color: var(--muted); font-size: 13px; }
-      .fa-room-actions { display:grid; grid-template-columns:minmax(0,1fr) repeat(3, auto); gap:10px; }
+      .fa-room-actions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) repeat(3, auto); gap:10px; }
       .fa-room-actions input { min-width:0; background: rgba(255,255,255,.06); color:#fff8ef; border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px 14px; font-size:14px; }
       .fa-room-actions input::placeholder { color: rgba(255,248,239,.48); }
+      .fa-open-rooms { margin-top:12px; border:1px solid rgba(255,255,255,.10); background: rgba(22,10,2,.22); border-radius:18px; padding:12px; }
+      .fa-open-rooms-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+      .fa-open-rooms-title { font-weight:900; color:#ffe7b4; letter-spacing:.04em; }
+      .fa-open-rooms-list { display:flex; flex-direction:column; gap:10px; max-height:240px; overflow:auto; }
+      .fa-room-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:12px; border-radius:16px; background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); }
+      .fa-room-item-title { font-weight:800; color:#fff4df; }
+      .fa-room-item-meta { color: var(--muted); font-size:12px; margin-top:2px; }
+      .fa-room-empty { padding:14px; border-radius:14px; background: rgba(255,255,255,.04); color: var(--muted); text-align:center; }
+      .fa-btn.tiny { padding:8px 12px; font-size:12px; min-height:auto; border-radius:12px; }
 
       .fa-main {
         max-width: 1440px; margin: 0 auto; padding: 8px 22px 28px;
@@ -1020,6 +1038,7 @@
         .fa-start-fields { width: 100%; text-align: left; }
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
         .fa-room-actions input { grid-column: 1 / -1; }
+        .fa-room-item { grid-template-columns: 1fr; }
         .fa-board-wrap { min-height: 72vh; }
       }
     `;
@@ -1086,12 +1105,16 @@
     ui.friendPanel = root.querySelector('#fa-friend-panel');
     ui.modeAi = root.querySelector('#fa-mode-ai');
     ui.modeFriend = root.querySelector('#fa-mode-friend');
+    ui.roomTitleInput = root.querySelector('#fa-room-title-input');
     ui.roomCodeInput = root.querySelector('#fa-room-code-input');
     ui.roomCodeView = root.querySelector('#fa-room-code-view');
     ui.roomStatus = root.querySelector('#fa-room-status');
     ui.createRoomBtn = root.querySelector('#fa-create-room-btn');
     ui.joinRoomBtn = root.querySelector('#fa-join-room-btn');
     ui.leaveRoomBtn = root.querySelector('#fa-leave-room-btn');
+    ui.openRoomsPanel = root.querySelector('#fa-open-rooms-panel');
+    ui.openRoomsList = root.querySelector('#fa-open-rooms-list');
+    ui.refreshRoomsBtn = root.querySelector('#fa-refresh-rooms-btn');
 
     root.querySelector('#fa-open-leaderboard').addEventListener('click', openLeaderboard);
     root.querySelector('#fa-close-leaderboard').addEventListener('click', closeLeaderboard);
@@ -1114,8 +1137,9 @@
     ui.modeAi.addEventListener('click', () => switchMatchMode('ai'));
     ui.modeFriend.addEventListener('click', () => switchMatchMode('friend'));
     ui.createRoomBtn.addEventListener('click', createOnlineRoom);
-    ui.joinRoomBtn.addEventListener('click', joinOnlineRoom);
+    ui.joinRoomBtn.addEventListener('click', openJoinRoomList);
     ui.leaveRoomBtn.addEventListener('click', leaveOnlineRoom);
+    if (ui.refreshRoomsBtn) ui.refreshRoomsBtn.addEventListener('click', openJoinRoomList);
 
     ui.board.addEventListener('click', onBoardClick);
     ui.board.addEventListener('dblclick', e => e.preventDefault());
@@ -1126,6 +1150,9 @@
     });
     if (ui.roomCodeInput) ui.roomCodeInput.addEventListener('input', () => {
       ui.roomCodeInput.value = normalizeRoomCode(ui.roomCodeInput.value);
+    });
+    if (ui.roomCodeInput) ui.roomCodeInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') joinOnlineRoom();
     });
     ui.leaderModal.addEventListener('click', e => {
       if (e.target === ui.leaderModal) closeLeaderboard();
@@ -1708,7 +1735,7 @@
   async function leaveOnlineRoom() {
     try {
       if (!state.online.roomCode || !window.firebase || !firebase.database) {
-        state.online = { roomCode: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0 };
+        state.online = { roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0 };
         syncUI();
         return;
       }
@@ -1738,7 +1765,8 @@
     } catch (e) {
       console.log('leave room error ignored:', e);
     }
-    state.online = { roomCode: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0 };
+    state.online = { roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0 };
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
     syncUI();
     renderLobbyStatus();
   }
@@ -1763,6 +1791,7 @@
     const isHost = room.hostId && me && room.hostId === me;
     const isGuest = room.guestId && me && room.guestId === me;
     state.online.roomCode = room.code || state.online.roomCode;
+    state.online.roomTitle = room.title || state.online.roomTitle || '';
     state.online.role = isHost ? 'host' : isGuest ? 'guest' : state.online.role;
     state.online.mySide = isHost ? HUMAN : isGuest ? AI : state.online.mySide;
     state.online.opponentName = isHost ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
@@ -1804,6 +1833,58 @@
     renderLobbyStatus();
   }
 
+
+  function sanitizeRoomTitle(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function renderOpenRooms(rooms) {
+    if (!ui.openRoomsPanel || !ui.openRoomsList) return;
+    ui.openRoomsPanel.classList.remove('hidden');
+    if (!rooms.length) {
+      ui.openRoomsList.innerHTML = '<div class="fa-room-empty">No open rooms right now.</div>';
+      return;
+    }
+    ui.openRoomsList.innerHTML = rooms.map(room => {
+      const title = escapeHtml(room.title || 'Friendly Match');
+      const host = escapeHtml(room.hostNickname || 'Host');
+      const code = escapeHtml(room.code || '');
+      return `<div class="fa-room-item"><div><div class="fa-room-item-title">${title}</div><div class="fa-room-item-meta">Host ${host} · Code ${code}</div></div><button class="fa-btn tiny" data-room-code="${code}">Join</button></div>`;
+    }).join('');
+    ui.openRoomsList.querySelectorAll('[data-room-code]').forEach(btn => {
+      btn.addEventListener('click', () => joinOnlineRoom(btn.getAttribute('data-room-code')));
+    });
+  }
+
+  async function openJoinRoomList() {
+    if (!window.firebase || !firebase.database) {
+      ui.roomStatus.textContent = 'Firebase room sync is not available.';
+      return;
+    }
+    const typedCode = normalizeRoomCode(ui.roomCodeInput?.value);
+    if (typedCode) {
+      await joinOnlineRoom(typedCode);
+      return;
+    }
+    ui.roomStatus.textContent = 'Loading open rooms...';
+    const snap = await firebase.database().ref('omokRooms').once('value');
+    const raw = snap.val() || {};
+    const rooms = Object.values(raw)
+      .filter(room => room && room.status === 'waiting' && room.hostId && !room.guestId)
+      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+    renderOpenRooms(rooms);
+    ui.roomStatus.textContent = rooms.length ? 'Choose a room to join.' : 'No open rooms right now.';
+  }
+
   async function createOnlineRoom() {
     if (!state.profile) {
       const ok = await confirmLobbyProfile();
@@ -1814,8 +1895,10 @@
       return;
     }
     const code = makeRoomCode();
+    const roomTitle = sanitizeRoomTitle(ui.roomTitleInput?.value) || `${state.profile.nickname}'s Room`;
     const payload = {
       code,
+      title: roomTitle,
       hostId: state.profile.id,
       hostNickname: state.profile.nickname,
       guestId: null,
@@ -1831,16 +1914,20 @@
     };
     await firebase.database().ref('omokRooms/' + code).set(payload);
     state.online.roomCode = code;
+    state.online.roomTitle = roomTitle;
     state.online.role = 'host';
     state.online.mySide = HUMAN;
     state.online.opponentName = 'Waiting...';
     state.online.status = 'waiting';
+    if (ui.roomStatus) ui.roomStatus.textContent = 'Room created. Share the code or wait for your friend.';
     if (ui.roomCodeInput) ui.roomCodeInput.value = code;
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
     attachOnlineRoom(code);
     syncUI();
   }
 
-  async function joinOnlineRoom() {
+  async function joinOnlineRoom(codeOverride) {
     if (!state.profile) {
       const ok = await confirmLobbyProfile();
       if (!ok) return;
@@ -1849,7 +1936,7 @@
       ui.nickNote.textContent = 'Firebase room sync is not available.';
       return;
     }
-    const code = normalizeRoomCode(ui.roomCodeInput?.value);
+    const code = normalizeRoomCode(codeOverride || ui.roomCodeInput?.value);
     if (!code) {
       ui.roomStatus.textContent = 'Enter a valid room code.';
       return;
@@ -1871,6 +1958,7 @@
     room.updatedAt = Date.now();
     await ref.set(room);
     state.online.roomCode = code;
+    state.online.roomTitle = room.title || '';
     state.online.role = room.hostId === state.profile.id ? 'host' : 'guest';
     state.online.mySide = state.online.role === 'host' ? HUMAN : AI;
     state.online.opponentName = state.online.role === 'host' ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
@@ -1945,10 +2033,10 @@
     const result = state.lastResult;
     const summary = `Record ${state.totalWins}W · ${state.totalLosses}L · Best Streak ${state.bestStreak}`;
     if (isOnlineMode()) {
-      if (!state.online.roomCode) ui.lobbyText.textContent = 'Create or join a Firebase room, then start your online friendly match.';
-      else if (state.online.status === 'waiting') ui.lobbyText.textContent = `Room ${state.online.roomCode} is ready. Share the code and wait for your friend.`;
-      else if (state.online.status === 'ready') ui.lobbyText.textContent = `Friend connected. Press Game Start to begin room ${state.online.roomCode}.`;
-      else ui.lobbyText.textContent = `Online room ${state.online.roomCode} synced.`;
+      if (!state.online.roomCode) ui.lobbyText.textContent = 'Create your room title or open the room list, then start your online friendly match.';
+      else if (state.online.status === 'waiting') ui.lobbyText.textContent = `${state.online.roomTitle || 'Room'} (${state.online.roomCode}) is ready. Share the code and wait for your friend.`;
+      else if (state.online.status === 'ready') ui.lobbyText.textContent = `Friend connected. Press Game Start to begin ${state.online.roomTitle || 'your room'} (${state.online.roomCode}).`;
+      else ui.lobbyText.textContent = `Online room ${state.online.roomTitle || state.online.roomCode} synced.`;
     } else {
       ui.lobbyText.textContent = state.profile ? 'Press the center button to begin your next ranked match.' : 'Create your name, then begin your climb on the ladder.';
     }
@@ -2027,17 +2115,17 @@
     ui.totalLosses.textContent = String(state.totalLosses);
     ui.totalGames.textContent = String(state.totalGames);
     ui.bestTier.textContent = String(state.bestStreak);
-    ui.scaleLine.textContent = isOnlineMode() ? (state.online.roomCode ? `Room ${state.online.roomCode}` : 'Friend Match') : getAiTitle();
+    ui.scaleLine.textContent = isOnlineMode() ? (state.online.roomCode ? `${state.online.roomTitle || 'Room'} · ${state.online.roomCode}` : 'Friend Match') : getAiTitle();
     ui.reviewLine.textContent = state.review.length ? `${state.reviewIndex + 1} / ${state.review.length}` : 'Ready';
     if (ui.opponentName) ui.opponentName.textContent = isOnlineMode() ? (state.online.opponentName || 'Friend') : 'FA AI';
     if (ui.modeLine) ui.modeLine.textContent = isOnlineMode() ? 'Friend Match Online' : 'Player vs AI';
     if (ui.friendPanel) ui.friendPanel.classList.toggle('hidden', !isOnlineMode());
     if (ui.modeAi) ui.modeAi.classList.toggle('active', !isOnlineMode());
     if (ui.modeFriend) ui.modeFriend.classList.toggle('active', isOnlineMode());
-    if (ui.roomCodeView) ui.roomCodeView.textContent = `Room: ${state.online.roomCode || '——'}`;
+    if (ui.roomCodeView) ui.roomCodeView.textContent = state.online.roomCode ? `${state.online.roomTitle || 'Room'} · ${state.online.roomCode}` : 'Room: ——';
     if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? 'Friend joined. Ready to start.' : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? 'Match in progress.' : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
     if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !state.online.roomCode);
-    ui.connectionNote.textContent = isOnlineMode() ? (state.online.roomCode ? `Online room ${state.online.roomCode}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
+    ui.connectionNote.textContent = isOnlineMode() ? (state.online.roomCode ? `Online room ${state.online.roomTitle || state.online.roomCode}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
     syncLobbyActions();
     updateFullscreenButtons();
 
