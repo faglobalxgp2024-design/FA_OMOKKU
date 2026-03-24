@@ -319,9 +319,9 @@
 
   function createShell() {
     document.body.style.margin = '0';
-    document.body.style.background = '#05070c';
+    document.body.style.background = '#2c1d10';
     document.body.style.fontFamily = 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
-    document.body.style.color = '#eef3ff';
+    document.body.style.color = '#fff8ef';
     document.body.innerHTML = '';
 
     const root = document.createElement('div');
@@ -550,24 +550,34 @@
       .fa-bg {
         position: fixed; inset: 0;
         background:
-          radial-gradient(circle at 14% 16%, rgba(255,214,132,.24), transparent 22%),
-          radial-gradient(circle at 86% 12%, rgba(92,121,255,.22), transparent 24%),
-          radial-gradient(circle at 78% 82%, rgba(82,214,154,.12), transparent 22%),
-          radial-gradient(circle at 50% -6%, rgba(255,255,255,.08), transparent 26%),
-          linear-gradient(135deg, #0d1421 0%, #09101a 38%, #05070c 100%);
+          radial-gradient(circle at 18% 14%, rgba(255,224,165,.24), transparent 24%),
+          radial-gradient(circle at 84% 12%, rgba(188,130,58,.18), transparent 24%),
+          radial-gradient(circle at 82% 86%, rgba(120,76,32,.18), transparent 22%),
+          radial-gradient(circle at 50% -4%, rgba(255,255,255,.06), transparent 24%),
+          linear-gradient(180deg, rgba(61,39,19,.18), rgba(61,39,19,.18)),
+          repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.018) 0px,
+            rgba(255,255,255,.018) 2px,
+            rgba(0,0,0,.03) 2px,
+            rgba(0,0,0,.03) 6px,
+            rgba(255,255,255,.01) 6px,
+            rgba(255,255,255,.01) 14px
+          ),
+          linear-gradient(135deg, #5c3b20 0%, #3f2816 42%, #26170d 100%);
         background-attachment: fixed;
         z-index: 0;
       }
       .fa-grid {
         position: fixed; inset: 0; pointer-events: none;
         background:
-          radial-gradient(circle at 20% 18%, rgba(255,255,255,.08), transparent 10%),
-          radial-gradient(circle at 80% 22%, rgba(255,255,255,.06), transparent 12%),
-          linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+          radial-gradient(circle at 20% 18%, rgba(255,248,231,.06), transparent 10%),
+          radial-gradient(circle at 80% 22%, rgba(255,240,212,.05), transparent 12%),
+          linear-gradient(rgba(255,255,255,.014) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px);
         background-size: auto, auto, 34px 34px, 34px 34px;
-        mask-image: radial-gradient(circle at center, rgba(0,0,0,.78), transparent 88%);
-        opacity: .92;
+        mask-image: radial-gradient(circle at center, rgba(0,0,0,.68), transparent 88%);
+        opacity: .7;
         z-index: 0;
       }
       .fa-topbar, .fa-main { position: relative; z-index: 1; }
@@ -591,7 +601,7 @@
         display: grid; grid-template-columns: minmax(0, 1.15fr) 380px; gap: 22px;
       }
       .fa-panel {
-        background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.04));
+        background: linear-gradient(180deg, rgba(97,63,31,.34), rgba(52,32,17,.28));
         border: 1px solid var(--line);
         box-shadow: var(--shadow);
         border-radius: 26px;
@@ -604,7 +614,7 @@
       }
       .fa-player-card {
         display: flex; align-items: center; gap: 12px;
-        background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 20px; padding: 12px 14px;
+        background: rgba(255,245,232,.06); border: 1px solid rgba(255,237,206,.10); border-radius: 20px; padding: 12px 14px;
       }
       .fa-player-card.ai { justify-content: flex-end; }
       .fa-player-meta.right { text-align: right; }
@@ -655,12 +665,19 @@
         overflow: hidden;
         touch-action: manipulation;
         background:
-          linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0)),
-          radial-gradient(circle at center, rgba(255,255,255,.06), transparent 68%),
-          radial-gradient(circle at 14% 12%, rgba(226,187,103,.08), transparent 22%),
-          radial-gradient(circle at 86% 18%, rgba(99,120,255,.10), transparent 24%),
-          linear-gradient(135deg, rgba(213,178,108,.07), rgba(255,255,255,0) 35%, rgba(88,109,255,.06) 100%);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 30px 90px rgba(0,0,0,.28);
+          linear-gradient(180deg, rgba(255,245,230,.08), rgba(255,245,230,0)),
+          radial-gradient(circle at center, rgba(255,233,196,.07), transparent 68%),
+          radial-gradient(circle at 14% 12%, rgba(232,188,110,.13), transparent 24%),
+          radial-gradient(circle at 86% 18%, rgba(145,96,44,.10), transparent 24%),
+          repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.015) 0px,
+            rgba(255,255,255,.015) 3px,
+            rgba(0,0,0,.022) 3px,
+            rgba(0,0,0,.022) 10px
+          ),
+          linear-gradient(135deg, rgba(120,76,35,.34), rgba(77,48,24,.3) 35%, rgba(49,29,15,.34) 100%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 30px 90px rgba(28,15,6,.26);
       }
       .fa-board-wrap::before {
         content: '';
@@ -675,20 +692,20 @@
       #fa-board {
         width: min(100%, 820px); height: auto; display: block;
         border-radius: 24px; box-shadow: 0 25px 70px rgba(0,0,0,.4);
-        background: #d8bc80;
+        background: #deb978;
         touch-action: manipulation;
       }
 
       .fa-stage, .fa-overlay {
         position: absolute; inset: 0; display: grid; place-items: center;
-        background: linear-gradient(180deg, rgba(6,10,18,.35), rgba(4,7,12,.56));
+        background: linear-gradient(180deg, rgba(35,20,8,.28), rgba(26,15,7,.46));
         padding: 18px;
         z-index: 6;
       }
       .fa-stage.hidden, .fa-overlay.hidden, .fa-modal.hidden, .fa-floating-game-actions.hidden { display: none; }
       .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
         width: min(100%, 520px); padding: 24px; border-radius: 28px;
-        background: linear-gradient(180deg, rgba(16,20,30,.92), rgba(9,12,19,.96));
+        background: linear-gradient(180deg, rgba(77,49,24,.94), rgba(47,29,15,.96));
         border: 1px solid rgba(255,255,255,.09); box-shadow: var(--shadow);
         text-align: center;
       }
@@ -748,7 +765,7 @@
       .fa-floating-game-actions {
         position: absolute;
         right: 18px;
-        bottom: 18px;
+        top: 18px;
         z-index: 3;
         display: flex;
         flex-direction: column;
@@ -757,7 +774,7 @@
       .fa-floating-game-actions .fa-btn {
         min-width: 152px;
         backdrop-filter: blur(12px);
-        background: rgba(11,15,24,.66);
+        background: rgba(66,40,19,.78);
       }
 
       .fa-bottom {
@@ -777,7 +794,7 @@
       .fa-actions { display: flex; gap: 10px; flex-wrap: wrap; }
       .fa-btn {
         appearance: none; border: 1px solid rgba(255,255,255,.12); outline: none;
-        background: rgba(255,255,255,.06); color: #ecf2ff; border-radius: 16px; padding: 12px 16px;
+        background: rgba(255,255,255,.06); color: #fff8ef; border-radius: 16px; padding: 12px 16px;
         font-weight: 800; cursor: pointer; transition: .2s ease; box-shadow: 0 10px 24px rgba(0,0,0,.18);
       }
       .fa-btn:hover { transform: translateY(-1px); background: rgba(255,255,255,.08); }
@@ -786,16 +803,16 @@
         color: #121316; border-color: rgba(255,230,181,.36);
       }
       .fa-btn.danger { border-color: rgba(255,132,109,.28); color: #ffd3c8; }
-      .fa-btn.ghost { background: rgba(255,255,255,.03); }
+      .fa-btn.ghost { background: rgba(255,248,238,.045); }
       .fa-btn.big { min-width: 180px; padding: 14px 20px; }
       .fa-panel-title { font-weight: 900; font-size: 18px; }
       .fa-panel-sub, .fa-mini-note { font-size: 13px; color: var(--muted); margin-top: 6px; }
       .fa-profile-inline {
         margin-top: 14px; display: flex; align-items: center; gap: 12px; padding: 12px 14px;
-        background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 18px;
+        background: rgba(255,245,232,.05); border: 1px solid rgba(255,237,206,.08); border-radius: 18px;
       }
       .fa-stats-grid { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .fa-stat-box, .fa-info-box { background: rgba(255,255,255,.04); border-radius: 18px; border: 1px solid rgba(255,255,255,.07); }
+      .fa-stat-box, .fa-info-box { background: rgba(255,245,232,.05); border-radius: 18px; border: 1px solid rgba(255,237,206,.08); }
       .fa-stat-box { padding: 14px; }
       .fa-stat-box span { display: block; color: var(--muted); font-size: 13px; }
       .fa-stat-box strong { display: block; margin-top: 8px; font-size: 24px; letter-spacing: .02em; }
@@ -832,11 +849,11 @@
         background: rgba(213,178,108,.14); color: #f0d79d; font-weight: 800; border: 1px solid rgba(213,178,108,.24);
       }
       .fa-modal {
-        position: fixed; inset: 0; background: rgba(3,6,12,.64); display: grid; place-items: center; padding: 22px; z-index: 10;
+        position: fixed; inset: 0; background: rgba(26,15,7,.56); display: grid; place-items: center; padding: 22px; z-index: 10;
       }
       .fa-modal-card {
         width: min(100%, 860px); max-height: min(88vh, 940px); border-radius: 28px;
-        background: linear-gradient(180deg, rgba(15,19,28,.95), rgba(11,14,21,.96));
+        background: linear-gradient(180deg, rgba(73,47,24,.95), rgba(42,27,14,.96));
         border: 1px solid rgba(255,255,255,.08); box-shadow: var(--shadow); overflow: hidden;
       }
       .fa-modal-head {
@@ -854,7 +871,7 @@
       .fa-place-action .fa-btn { pointer-events: auto; min-width: 132px; }
       .fa-countdown {
         position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-        z-index: 16; background: radial-gradient(circle at center, rgba(0,0,0,.08), rgba(0,0,0,.32));
+        z-index: 16; background: radial-gradient(circle at center, rgba(57,34,15,.06), rgba(23,13,7,.28));
         backdrop-filter: blur(2px);
       }
       .fa-countdown-num {
@@ -924,7 +941,7 @@
         .fa-stage-card, .fa-overlay-card, .fa-confirm-card {
           margin: auto 0;
         }
-        .fa-floating-game-actions { right: 12px; bottom: 12px; }
+        .fa-floating-game-actions { right: 12px; top: 12px; }
         .fa-floating-game-actions .fa-btn { min-width: 138px; padding: 11px 14px; }
         .mobile-only { display: inline-flex; }
         .fa-topbar { padding: 14px; }
