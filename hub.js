@@ -127,7 +127,10 @@
     lobbyConfirmed: false,
     pendingMove: null,
     countdownActive: false,
-    voiceEnabled: true
+    voiceEnabled: true,
+    voicesLoaded: false,
+    cachedVoices: [],
+    preferredVoice: null
   };
 
   const ui = {};
@@ -1053,6 +1056,65 @@
   }
 
 
+  function isMobileVoiceEnv() {
+    try {
+      return /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent || '');
+    } catch {
+      return false;
+    }
+  }
+
+  function pickPreferredVoice(voices) {
+    if (!voices || !voices.length) return null;
+    return voices.find(v => /en-US/i.test(v.lang || '') && /(samantha|ava|victoria|allison|english|google us)/i.test(v.name || ''))
+      || voices.find(v => /en-US/i.test(v.lang || ''))
+      || voices.find(v => /^en(-|_)/i.test(v.lang || '') && /(female|woman|google|samantha|ava|victoria|allison)/i.test(v.name || ''))
+      || voices.find(v => /^en(-|_)/i.test(v.lang || '') || /english/i.test(v.name || ''))
+      || voices[0]
+      || null;
+  }
+
+  function cacheVoices() {
+    try {
+      if (!window.speechSynthesis) return [];
+      const synth = window.speechSynthesis;
+      const voices = synth.getVoices ? synth.getVoices() : [];
+      if (voices && voices.length) {
+        state.cachedVoices = voices;
+        state.preferredVoice = pickPreferredVoice(voices);
+        state.voicesLoaded = true;
+      }
+      return state.cachedVoices || [];
+    } catch {
+      return state.cachedVoices || [];
+    }
+  }
+
+  async function ensureSpeechReady() {
+    try {
+      if (!state.voiceEnabled || !window.speechSynthesis) return;
+      const synth = window.speechSynthesis;
+      const nowVoices = cacheVoices();
+      if (nowVoices.length) return;
+
+      await new Promise(resolve => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          try { synth.removeEventListener('voiceschanged', onVoices); } catch {}
+          resolve();
+        };
+        const onVoices = () => { cacheVoices(); finish(); };
+        try { synth.addEventListener('voiceschanged', onVoices); } catch {}
+        try { synth.getVoices(); } catch {}
+        setTimeout(finish, isMobileVoiceEnv() ? 1400 : 600);
+      });
+
+      cacheVoices();
+    } catch {}
+  }
+
   function speakSafe(text, rate = 0.72, pitch = 1.25) {
     try {
       if (!state.voiceEnabled || !window.speechSynthesis || !text) return;
@@ -1061,12 +1123,23 @@
       utter.lang = 'en-US';
       utter.rate = rate;
       utter.pitch = pitch;
-      const voices = synth.getVoices ? synth.getVoices() : [];
-      if (voices && voices.length) {
-        utter.voice = voices.find(v => /^en(-|_)/i.test(v.lang || '') || /english/i.test(v.name || '')) || voices[0];
+      utter.volume = 1;
+
+      if (!state.cachedVoices || !state.cachedVoices.length) cacheVoices();
+      if (state.preferredVoice) utter.voice = state.preferredVoice;
+
+      const mobile = isMobileVoiceEnv();
+      if (mobile) {
+        utter.rate = Math.max(0.6, Math.min(rate, 0.78));
+        utter.pitch = Math.max(1.0, pitch);
       }
+
       synth.cancel();
-      synth.speak(utter);
+      const runSpeak = () => {
+        try { synth.speak(utter); } catch (e) { console.log('voice error ignored:', e); }
+      };
+      if (mobile) setTimeout(runSpeak, 120);
+      else runSpeak();
     } catch (e) {
       console.log('voice error ignored:', e);
     }
@@ -1108,6 +1181,7 @@
 
     try {
       initAudio();
+      await ensureSpeechReady();
       for (const step of steps) {
         setCountdownVisible(true, step.label, !!step.startTone);
         speakSafe(step.say, step.rate, step.pitch);
