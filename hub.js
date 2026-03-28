@@ -13,7 +13,7 @@
   }
 
 (() => {
-  const APP_NAME = 'FA OMOK';
+  const APP_NAME = 'FA gomoku';
   const STORAGE_KEY = 'fa_omok_state_v2';
   const PROFILE_KEY = 'fa_omok_profile_v2';
   const LEADERBOARD_KEY = 'fa_omok_board_v3';
