@@ -1,5 +1,3 @@
-
-
   function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
@@ -1180,58 +1178,10 @@
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
         .fa-room-actions input { grid-column: 1 / -1; }
         .fa-room-presence-slots { grid-template-columns: 1fr; }
-        #fa-start-screen[data-roomlist-open="1"] {
-          overflow: hidden;
-          align-items: start;
-        }
-        #fa-start-screen[data-roomlist-open="1"] .fa-stage-card.lobby {
-          height: calc(100dvh - max(28px, env(safe-area-inset-top)) - max(32px, env(safe-area-inset-bottom)));
-          max-height: calc(100dvh - max(28px, env(safe-area-inset-top)) - max(32px, env(safe-area-inset-bottom)));
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-        #fa-start-screen[data-roomlist-open="1"] .fa-friend-panel {
-          flex: 1 1 auto;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-        }
-        #fa-start-screen[data-roomlist-open="1"] #fa-open-rooms-panel[data-open="1"] {
-          flex: 1 1 auto;
-          min-height: 0;
-          margin-top: 12px;
-          display: flex;
-          flex-direction: column;
-        }
-        #fa-start-screen[data-roomlist-open="1"] #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-head { flex: 0 0 auto; }
-        #fa-start-screen[data-roomlist-open="1"] #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-list {
-          display: flex;
-          flex-direction: column;
-          flex-wrap: nowrap !important;
-          gap: 10px;
-          flex: 1 1 auto;
-          max-height: none;
-          overflow-x: hidden;
-          overflow-y: auto;
-          scroll-snap-type: y proximity;
-          -webkit-overflow-scrolling: touch;
-          padding-right: 2px;
-          padding-bottom: 2px;
-          touch-action: pan-y;
-          overscroll-behavior: contain;
-        }
-        #fa-start-screen[data-roomlist-open="1"] #fa-open-rooms-panel[data-open="1"].hidden { display: none !important; }
-        #fa-start-screen[data-roomlist-open="1"] #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-list.single-room { justify-content: flex-start; }
-        #fa-start-screen[data-roomlist-open="1"] #fa-open-rooms-panel[data-open="1"] .fa-room-item,
-        #fa-start-screen[data-roomlist-open="1"] #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-list.single-room .fa-room-item {
-          grid-template-columns: minmax(0,1fr) auto;
-          min-width: 100%;
-          width: 100%;
-          max-width: 100%;
-          flex: 0 0 auto;
-          scroll-snap-align: start;
-        }
+        .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; justify-content:flex-start; touch-action: pan-x; overscroll-behavior-x: contain; }
+        .fa-open-rooms-list.single-room { overflow-x: hidden; justify-content: center; }
+        .fa-room-item { grid-template-columns: minmax(0,1fr) auto; min-width: 86vw; width: 86vw; max-width: 360px; flex: 0 0 86vw; scroll-snap-align: start; }
+        .fa-open-rooms-list.single-room .fa-room-item { min-width: min(100%, 360px); width: min(100%, 360px); flex: 0 1 min(100%, 360px); }
         .fa-board-wrap { min-height: 72vh; }
       }
     `;
@@ -2140,7 +2090,6 @@
         stopOnlinePresence();
         state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0 };
         if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '';
-        setJoinRoomScreenLocked(false);
         syncUI();
         return;
       }
@@ -2307,11 +2256,6 @@
     document.body.classList.toggle('fa-roomlist-lock', !!locked);
   }
 
-  function setJoinRoomScreenLocked(locked) {
-    if (ui.startScreen) ui.startScreen.dataset.roomlistOpen = locked ? '1' : '';
-    if (ui.boardWrap) ui.boardWrap.classList.toggle('join-room-open', !!locked);
-  }
-
   function stopOnlinePresence() {
     if (state.online.presenceHandle) {
       clearInterval(state.online.presenceHandle);
@@ -2395,7 +2339,6 @@
       return;
     }
     if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '1';
-    setJoinRoomScreenLocked(true);
     updateFriendRoomPanelVisibility();
     const typedCode = normalizeRoomCode(ui.roomCodeInput?.value);
     if (typedCode) {
@@ -2774,9 +2717,7 @@
     if (ui.roomCodeInput) ui.roomCodeInput.classList.toggle('hidden', !showComposer);
     if (ui.createRoomBtn) ui.createRoomBtn.classList.toggle('hidden', !showComposer);
     if (ui.joinRoomBtn) ui.joinRoomBtn.classList.toggle('hidden', !showComposer);
-    const roomListOpen = !!(ui.openRoomsPanel && ui.openRoomsPanel.dataset.open);
-    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.toggle('hidden', !showComposer || !roomListOpen);
-    setJoinRoomScreenLocked(showComposer && roomListOpen);
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.toggle('hidden', !showComposer || !ui.openRoomsPanel.dataset.open);
     if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !(inFriendMode && hasRoom));
     if (ui.roomActions) ui.roomActions.classList.toggle('room-locked', inFriendMode && hasRoom);
   }
