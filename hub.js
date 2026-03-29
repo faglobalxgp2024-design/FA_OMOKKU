@@ -262,7 +262,7 @@
     else board.push(entry);
     board.sort(compareLeaderboard);
     setLocalLeaderboard(board);
-    state.leaderboardCache = board.slice(0, 30);
+    state.leaderboardCache = board.slice(0, 50);
   }
 
   function compareLeaderboard(a, b) {
@@ -364,7 +364,7 @@
     return season;
   }
 
-  function getWeeklyLeaderboard().slice(0, 7) {
+  function getWeeklyLeaderboard() {
     ensureWeeklySeason();
     try {
       const parsed = JSON.parse(localStorage.getItem(WEEKLY_LEADERBOARD_KEY) || '[]');
@@ -406,7 +406,7 @@
       const season = ensureWeeklySeason();
       if (state.profile.weeklyKey !== season.key) { state.profile.weeklyKey = season.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
     }
-    state.leaderboardCache = getLocalLeaderboard().slice(0, 30);
+    state.leaderboardCache = getLocalLeaderboard().slice(0, 50);
   }
 
   function createShell() {
@@ -638,7 +638,7 @@
             </div>
 
             <div class="fa-panel lb">
-              <div class="fa-panel-title">Top 50</div>
+              <div class="fa-panel-title">Top 30</div>
               <div class="fa-panel-sub">Only players with at least 1 win are listed.</div>
               <div class="fa-leader-scroll" id="fa-leader-preview"></div>
             </div>
@@ -3092,16 +3092,16 @@
 
   async function renderLeaderboard(full = false) {
     let totalBoard = [];
-    try { totalBoard = await state.remoteAdapter.fetchTop(50); } catch { totalBoard = getLocalLeaderboard().slice(0, 30); }
-    totalBoard = (Array.isArray(totalBoard) ? totalBoard : []).slice(0, 30);
+    try { totalBoard = await state.remoteAdapter.fetchTop(50); } catch { totalBoard = getLocalLeaderboard().slice(0, 50); }
+    totalBoard = (Array.isArray(totalBoard) ? totalBoard : []).slice(0, 50);
     state.leaderboardCache = totalBoard;
     const weeklySeason = ensureWeeklySeason();
     let weeklyBoard = totalBoard
       .filter(p => (p.weeklyKey || weeklySeason.key) === weeklySeason.key && Number(p.weeklyWins || 0) > 0)
       .map(p => ({ ...p, totalWins: Number(p.weeklyWins || 0), totalLosses: Number(p.weeklyLosses || 0), totalGames: Number(p.weeklyGames || 0) }))
       .sort(compareLeaderboard)
-      .slice(0, 30);
-    if (!weeklyBoard.length) weeklyBoard = getWeeklyLeaderboard().slice(0, 7).slice(0, 30);
+      .slice(0, 50);
+    if (!weeklyBoard.length) weeklyBoard = getWeeklyLeaderboard().slice(0, 50);
 
     const rankMark = i => {
       if (i === 0) return { cls: 'crown-top', label: '👑' };
@@ -3142,7 +3142,8 @@
     if (full) {
       const activeBoard = state.leaderboardTab === 'weekly' ? weeklyBoard : totalBoard;
       const weeklyHead = state.leaderboardTab === 'weekly' ? `<div class="fa-mini-note" style="margin:0 0 12px 0;">Weekly season: ${formatDateTimeEnglish(weeklySeason.start)} ~ ${formatDateTimeEnglish(weeklySeason.end)}</div>` : '';
-      ui.leaderList.innerHTML = weeklyHead + (activeBoard.length ? activeBoard.slice(0,30).map((p,i)=>buildRow(p,i,state.leaderboardTab === 'weekly')).join('') : empty);
+      const displayLimit = state.leaderboardTab === 'weekly' ? 7 : 30;
+      ui.leaderList.innerHTML = weeklyHead + (activeBoard.length ? activeBoard.slice(0, displayLimit).map((p,i)=>buildRow(p,i,state.leaderboardTab === 'weekly')).join('') : empty);
     }
   }
 
