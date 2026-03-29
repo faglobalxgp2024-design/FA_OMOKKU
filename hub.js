@@ -2204,8 +2204,31 @@
       timeoutMs: 60000,
       onConfirm: async () => {
         if (!window.firebase || !firebase.database) return;
+        const ref = firebase.database().ref(getRoomPath(state.online.roomId || state.online.roomCode));
+        const snap = await ref.once('value');
+        const latestRoom = snap.val();
+        if (!latestRoom) {
+          state.online.lastGuestReadySeenAt = 0;
+          ui.roomStatus.textContent = 'The room is no longer available.';
+          await leaveOnlineRoom();
+          return;
+        }
+        const guestAlive = isRoomRoleAlive(latestRoom, 'guest');
+        if (!latestRoom.guestId || !latestRoom.guestReady || !guestAlive) {
+          state.online.lastGuestReadySeenAt = 0;
+          ui.roomStatus.textContent = 'The guest left the room. Start request cancelled.';
+          await ref.update({
+            guestId: guestAlive ? latestRoom.guestId : null,
+            guestNickname: guestAlive ? latestRoom.guestNickname : null,
+            guestReady: false,
+            status: 'waiting',
+            updatedAt: Date.now()
+          });
+          syncUI();
+          return;
+        }
         playRoomEventChime('join');
-        await firebase.database().ref(getRoomPath(state.online.roomId || state.online.roomCode)).update({
+        await ref.update({
           hostReady: true,
           hostPingAt: Date.now(),
           status: 'countdown',
@@ -2222,6 +2245,7 @@
         ui.roomStatus.textContent = 'Starting duel...';
       },
       onCancel: async () => {
+        state.online.lastGuestReadySeenAt = 0;
         ui.roomStatus.textContent = 'Start request expired. Waiting for guest ready.';
       }
     });
@@ -2324,13 +2348,18 @@
     const hostAlive = isRoomRoleAlive(room, 'host');
     const guestAlive = isRoomRoleAlive(room, 'guest');
     if (!hostAlive && state.online.role === 'guest') {
+      closeConfirm();
+      state.online.lastGuestReadySeenAt = 0;
       state.online.status = 'waiting';
       state.online.hostReady = false;
     }
     if (!guestAlive && state.online.role === 'host') {
+      closeConfirm();
+      state.online.lastGuestReadySeenAt = 0;
       state.online.status = 'waiting';
       state.online.guestReady = false;
       state.online.opponentName = 'Waiting...';
+      if (ui.roomStatus) ui.roomStatus.textContent = 'Your friend left the room.';
     }
 
     if (state.online.role === 'host' && room.guestId && room.guestId !== prevGuestId) {
@@ -3052,6 +3081,10 @@
     return `${month} ${day}, ${hour}:${minute} ${ampm}`;
   }
 
+  function formatWeeklySeasonText(startDate, endDate) {
+    return `${formatDateTimeEnglish(startDate)} ~ ${formatDateTimeEnglish(endDate)}`;
+  }
+
   function switchLeaderboardTab(tab) {
     state.leaderboardTab = tab === 'weekly' ? 'weekly' : 'total';
     if (ui.leaderTabTotal) ui.leaderTabTotal.classList.toggle('active', state.leaderboardTab === 'total');
@@ -3082,6 +3115,9 @@
       return { cls: '', label: `${i + 1}${ordinalSuffix(i + 1)}` };
     };
 
+    const weeklySeasonText = formatWeeklySeasonText(weeklySeason.start, weeklySeason.end);
+    const weeklyResetText = `season ${weeklySeasonText}`;
+
     const buildRow = (p, i, weekly = false) => {
       const mark = rankMark(i);
       return `
@@ -3089,7 +3125,7 @@
         <div class="fa-rank-pos ${mark.cls}">${mark.label}</div>
         <div class="fa-rank-main">
           <div class="fa-rank-name">${escapeHtml(p.nickname)}</div>
-          <div class="fa-rank-sub">${p.totalGames || 0} games · ${p.totalWins || 0} wins · ${p.totalLosses || 0} losses${weekly ? ' · resets Sat 12:00 PM' : ' · best streak ' + (p.bestStreak || 0)}</div>
+          <div class="fa-rank-sub">${p.totalGames || 0} games · ${p.totalWins || 0} wins · ${p.totalLosses || 0} losses${weekly ? ' · ' + weeklyResetText : ' · best streak ' + (p.bestStreak || 0)}</div>
         </div>
         <div class="fa-rank-badge">${escapeHtml(p.rank || '10k')}</div>
       </div>
@@ -3110,7 +3146,7 @@
     ui.leaderPreview.innerHTML = totalBoard.length ? totalBoard.slice(0,30).map((p,i)=>buildRow(p,i,false)).join('') : empty;
     if (full) {
       const activeBoard = state.leaderboardTab === 'weekly' ? weeklyBoard : totalBoard;
-      const weeklyHead = state.leaderboardTab === 'weekly' ? `<div class="fa-mini-note" style="margin:0 0 12px 0;">Weekly season: ${formatDateTimeEnglish(weeklySeason.start)} ~ ${formatDateTimeEnglish(weeklySeason.end)}</div>` : '';
+      const weeklyHead = state.leaderboardTab === 'weekly' ? `<div class="fa-mini-note" style="margin:0 0 12px 0;">Weekly season: ${weeklySeasonText}</div>` : '';
       ui.leaderList.innerHTML = weeklyHead + (activeBoard.length ? activeBoard.slice(0,30).map((p,i)=>buildRow(p,i,state.leaderboardTab === 'weekly')).join('') : empty);
     }
   }
