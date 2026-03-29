@@ -1180,10 +1180,48 @@
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
         .fa-room-actions input { grid-column: 1 / -1; }
         .fa-room-presence-slots { grid-template-columns: 1fr; }
-        .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; justify-content:flex-start; touch-action: pan-x; overscroll-behavior-x: contain; }
-        .fa-open-rooms-list.single-room { overflow-x: hidden; justify-content: center; }
-        .fa-room-item { grid-template-columns: minmax(0,1fr) auto; min-width: 86vw; width: 86vw; max-width: 360px; flex: 0 0 86vw; scroll-snap-align: start; }
-        .fa-open-rooms-list.single-room .fa-room-item { min-width: min(100%, 360px); width: min(100%, 360px); flex: 0 1 min(100%, 360px); }
+        #fa-open-rooms-panel[data-open="1"] {
+          position: fixed;
+          left: 14px;
+          right: 14px;
+          top: max(14px, env(safe-area-inset-top));
+          bottom: max(14px, env(safe-area-inset-bottom));
+          z-index: 40;
+          margin-top: 0;
+          display: flex;
+          flex-direction: column;
+          border-radius: 24px;
+          background: linear-gradient(180deg, rgba(63,38,18,.98), rgba(34,20,10,.98));
+          box-shadow: 0 28px 70px rgba(0,0,0,.42);
+        }
+        #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-head { flex: 0 0 auto; }
+        #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-list {
+          display: flex;
+          flex-direction: column;
+          flex-wrap: nowrap !important;
+          gap: 10px;
+          flex: 1 1 auto;
+          max-height: none;
+          overflow-x: hidden;
+          overflow-y: auto;
+          scroll-snap-type: y proximity;
+          -webkit-overflow-scrolling: touch;
+          padding-right: 2px;
+          padding-bottom: 2px;
+          touch-action: pan-y;
+          overscroll-behavior: contain;
+        }
+        #fa-open-rooms-panel[data-open="1"].hidden { display: none !important; }
+        #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-list.single-room { justify-content: flex-start; }
+        #fa-open-rooms-panel[data-open="1"] .fa-room-item,
+        #fa-open-rooms-panel[data-open="1"] .fa-open-rooms-list.single-room .fa-room-item {
+          grid-template-columns: minmax(0,1fr) auto;
+          min-width: 100%;
+          width: 100%;
+          max-width: 100%;
+          flex: 0 0 auto;
+          scroll-snap-align: start;
+        }
         .fa-board-wrap { min-height: 72vh; }
       }
     `;
