@@ -155,7 +155,13 @@
       hostReady: false,
       guestReady: false,
       turnExpiresAt: 0,
-      presenceHandle: null
+      presenceHandle: null,
+      hostId: '',
+      guestId: '',
+      hostName: '',
+      guestName: '',
+      lastGuestSeenId: '',
+      lastRoomPulseAt: 0
     }
   };
 
@@ -431,6 +437,28 @@
                         <button class="fa-btn" id="fa-join-room-btn">Join Room</button>
                         <button class="fa-btn ghost hidden" id="fa-leave-room-btn">Leave Room</button>
                       </div>
+                      <div class="fa-room-presence hidden" id="fa-room-presence">
+                        <div class="fa-room-presence-head">
+                          <div class="fa-room-presence-badge" id="fa-room-presence-badge">ROOM STANDBY</div>
+                          <div class="fa-room-presence-note" id="fa-room-presence-note">Create a room to invite your friend.</div>
+                        </div>
+                        <div class="fa-room-presence-slots">
+                          <div class="fa-room-slot host" id="fa-room-host-slot">
+                            <div class="fa-room-slot-avatar" id="fa-room-host-avatar">👑</div>
+                            <div class="fa-room-slot-meta">
+                              <div class="fa-room-slot-role">Host</div>
+                              <div class="fa-room-slot-name" id="fa-room-host-name">Waiting for host</div>
+                            </div>
+                          </div>
+                          <div class="fa-room-slot guest" id="fa-room-guest-slot">
+                            <div class="fa-room-slot-avatar" id="fa-room-guest-avatar">✨</div>
+                            <div class="fa-room-slot-meta">
+                              <div class="fa-room-slot-role">Guest</div>
+                              <div class="fa-room-slot-name" id="fa-room-guest-name">Waiting for guest</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                       <div class="fa-open-rooms hidden" id="fa-open-rooms-panel">
                         <div class="fa-open-rooms-head">
                           <div class="fa-open-rooms-title">Open Rooms</div>
@@ -658,6 +686,55 @@
       .fa-room-actions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) repeat(3, auto); gap:10px; }
       .fa-room-actions input { min-width:0; background: rgba(255,255,255,.06); color:#fff8ef; border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px 14px; font-size:14px; }
       .fa-room-actions input::placeholder { color: rgba(255,248,239,.48); }
+      .fa-room-actions.room-locked { grid-template-columns: 1fr; }
+      .fa-room-actions.room-locked .fa-btn { width: 100%; }
+      .fa-room-presence {
+        margin-top: 12px; padding: 14px; border-radius: 18px;
+        border: 1px solid rgba(255,235,202,.12);
+        background:
+          linear-gradient(180deg, rgba(255,247,231,.10), rgba(255,247,231,.04)),
+          linear-gradient(135deg, rgba(108,68,30,.38), rgba(63,36,17,.28));
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 16px 34px rgba(28,13,3,.14);
+      }
+      .fa-room-presence-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom: 12px; }
+      .fa-room-presence-badge {
+        display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+        font-size:12px; font-weight:900; letter-spacing:.10em; text-transform:uppercase;
+        color:#fff2cf; background: rgba(255,228,167,.10); border:1px solid rgba(255,228,167,.20);
+      }
+      .fa-room-presence-note { color: var(--muted); font-size: 12px; }
+      .fa-room-presence-slots { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+      .fa-room-slot {
+        display:flex; align-items:center; gap:12px; min-width:0; padding:12px; border-radius:18px;
+        background: rgba(255,250,242,.05); border:1px solid rgba(255,240,214,.08);
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+      }
+      .fa-room-slot.filled {
+        background: linear-gradient(180deg, rgba(255,248,235,.12), rgba(255,248,235,.05));
+        border-color: rgba(255,228,167,.18);
+        box-shadow: 0 12px 28px rgba(26,12,3,.14);
+      }
+      .fa-room-slot.pulse {
+        animation: faRoomPulse 1.2s ease;
+      }
+      .fa-room-slot-avatar {
+        width: 44px; height: 44px; border-radius: 14px; display:grid; place-items:center;
+        background: linear-gradient(145deg, rgba(244,210,138,.92), rgba(140,99,42,.92));
+        color:#18130e; font-size: 20px; font-weight:900; flex:0 0 auto;
+        box-shadow: inset 0 1px 2px rgba(255,255,255,.45), 0 10px 24px rgba(0,0,0,.16);
+      }
+      .fa-room-slot.guest .fa-room-slot-avatar {
+        background: linear-gradient(145deg, rgba(209,220,255,.92), rgba(103,116,180,.92));
+        color:#151825;
+      }
+      .fa-room-slot-meta { min-width:0; }
+      .fa-room-slot-role { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color: var(--muted); font-weight:800; }
+      .fa-room-slot-name { margin-top:4px; font-size:15px; font-weight:900; color:#fff6e6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      @keyframes faRoomPulse {
+        0% { transform: scale(.98); box-shadow: 0 0 0 rgba(255,228,167,0); }
+        35% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(255,228,167,.08); }
+        100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,228,167,0); }
+      }
       .fa-open-rooms { margin-top:12px; border:1px solid rgba(255,255,255,.10); background: rgba(22,10,2,.22); border-radius:18px; padding:12px; overflow:hidden; }
       .fa-open-rooms-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
       .fa-open-rooms-title { font-weight:900; color:#ffe7b4; letter-spacing:.04em; }
@@ -1102,6 +1179,7 @@
         .fa-start-fields { width: 100%; text-align: left; }
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
         .fa-room-actions input { grid-column: 1 / -1; }
+        .fa-room-presence-slots { grid-template-columns: 1fr; }
         .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; justify-content:flex-start; touch-action: pan-x; overscroll-behavior-x: contain; }
         .fa-open-rooms-list.single-room { overflow-x: hidden; justify-content: center; }
         .fa-room-item { grid-template-columns: minmax(0,1fr) auto; min-width: 86vw; width: 86vw; max-width: 360px; flex: 0 0 86vw; scroll-snap-align: start; }
@@ -1141,6 +1219,7 @@
     ui.fixedName = root.querySelector('#fa-fixed-name');
     ui.selfAvatar = root.querySelector('#fa-self-avatar');
     ui.startAvatar = root.querySelector('#fa-start-avatar');
+    ui.startProfile = root.querySelector('.fa-start-profile');
     ui.sideAvatar = root.querySelector('#fa-side-avatar');
     ui.sideName = root.querySelector('#fa-side-name');
     ui.connectionNote = root.querySelector('#fa-connection-note');
@@ -1178,12 +1257,22 @@
     ui.roomCodeInput = root.querySelector('#fa-room-code-input');
     ui.roomCodeView = root.querySelector('#fa-room-code-view');
     ui.roomStatus = root.querySelector('#fa-room-status');
+    ui.roomActions = ui.roomTitleInput ? ui.roomTitleInput.parentElement : null;
     ui.createRoomBtn = root.querySelector('#fa-create-room-btn');
     ui.joinRoomBtn = root.querySelector('#fa-join-room-btn');
     ui.leaveRoomBtn = root.querySelector('#fa-leave-room-btn');
     ui.openRoomsPanel = root.querySelector('#fa-open-rooms-panel');
     ui.openRoomsList = root.querySelector('#fa-open-rooms-list');
     ui.refreshRoomsBtn = root.querySelector('#fa-refresh-rooms-btn');
+    ui.roomPresence = root.querySelector('#fa-room-presence');
+    ui.roomPresenceBadge = root.querySelector('#fa-room-presence-badge');
+    ui.roomPresenceNote = root.querySelector('#fa-room-presence-note');
+    ui.roomHostSlot = root.querySelector('#fa-room-host-slot');
+    ui.roomGuestSlot = root.querySelector('#fa-room-guest-slot');
+    ui.roomHostName = root.querySelector('#fa-room-host-name');
+    ui.roomGuestName = root.querySelector('#fa-room-guest-name');
+    ui.roomHostAvatar = root.querySelector('#fa-room-host-avatar');
+    ui.roomGuestAvatar = root.querySelector('#fa-room-guest-avatar');
 
     root.querySelector('#fa-open-leaderboard').addEventListener('click', openLeaderboard);
     root.querySelector('#fa-close-leaderboard').addEventListener('click', closeLeaderboard);
@@ -1432,6 +1521,94 @@
     osc.stop(now + 0.09);
   }
 
+  function playRoomEventChime(type = 'join') {
+    if (!state.audio) return;
+    const ctx = state.audio;
+    const now = ctx.currentTime;
+    const notes = type === 'create' ? [392, 523.25, 659.25] : [659.25, 830.61, 987.77];
+    notes.forEach((freq, index) => {
+      const start = now + index * 0.06;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type === 'create' ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(type === 'create' ? 0.06 : 0.09, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.24);
+    });
+  }
+
+  function getAvatarSymbol(seed, fallback = '✨') {
+    return seed ? getAvatarBySeed(seed) : fallback;
+  }
+
+  function pulseRoomSlot(slot) {
+    if (!slot) return;
+    slot.classList.remove('pulse');
+    void slot.offsetWidth;
+    slot.classList.add('pulse');
+    setTimeout(() => slot.classList.remove('pulse'), 1200);
+  }
+
+  function renderOnlinePresence(room) {
+    if (!ui.roomPresence) return;
+    const active = isOnlineMode();
+    ui.roomPresence.classList.toggle('hidden', !active);
+    if (!active) return;
+
+    const source = room || {
+      id: state.online.roomId,
+      title: state.online.roomTitle,
+      accessCode: state.online.roomCode,
+      hostId: state.online.hostId,
+      guestId: state.online.guestId,
+      hostNickname: state.online.hostName,
+      guestNickname: state.online.guestName,
+      status: state.online.status,
+      hostReady: state.online.hostReady,
+      guestReady: state.online.guestReady
+    };
+    const hasRoom = !!(source.id || source.accessCode || source.title);
+    const hostName = source.hostNickname || (state.online.role === 'host' && state.profile ? state.profile.nickname : 'Waiting for host');
+    const guestName = source.guestNickname || 'Waiting for guest';
+    const status = source.status || 'idle';
+    let badge = 'ROOM STANDBY';
+    let note = 'Create a room to invite your friend.';
+    if (hasRoom) {
+      if (status === 'waiting') {
+        badge = state.online.role === 'host' ? 'ROOM CREATED' : 'ROOM JOINED';
+        note = source.accessCode ? `Private room ${source.accessCode} ready.` : 'Open room ready. Waiting for a guest.';
+      } else if (status === 'ready') {
+        badge = 'ROOM READY';
+        note = (source.hostReady && source.guestReady) ? 'Both players are ready.' : (source.guestReady ? 'Guest is ready. Host can start.' : 'Guest joined. Waiting for ready.');
+      } else if (status === 'countdown') {
+        badge = 'MATCH STARTING';
+        note = 'Countdown in progress.';
+      } else if (status === 'playing') {
+        badge = 'MATCH LIVE';
+        note = 'Friendly duel in progress.';
+      } else if (status === 'finished') {
+        badge = 'MATCH FINISHED';
+        note = 'Return to the lobby for the next duel.';
+      } else {
+        badge = 'ROOM SYNCED';
+        note = 'Room state is connected.';
+      }
+    }
+    if (ui.roomPresenceBadge) ui.roomPresenceBadge.textContent = badge;
+    if (ui.roomPresenceNote) ui.roomPresenceNote.textContent = note;
+    if (ui.roomHostName) ui.roomHostName.textContent = hostName;
+    if (ui.roomGuestName) ui.roomGuestName.textContent = guestName;
+    if (ui.roomHostAvatar) ui.roomHostAvatar.textContent = hostName === 'Waiting for host' ? '👑' : getAvatarSymbol(source.hostId || hostName, '👑');
+    if (ui.roomGuestAvatar) ui.roomGuestAvatar.textContent = guestName === 'Waiting for guest' ? '✨' : getAvatarSymbol(source.guestId || guestName, '✨');
+    if (ui.roomHostSlot) ui.roomHostSlot.classList.toggle('filled', !!source.hostId);
+    if (ui.roomGuestSlot) ui.roomGuestSlot.classList.toggle('filled', !!source.guestId);
+  }
+
   function triggerWinBurst(type = 'win') {
     if (!ui.winBurst) return;
     ui.winBurst.innerHTML = '';
@@ -1555,10 +1732,16 @@
 
   function updateLobbyProfileUI() {
     const locked = !!(state.profile && state.profile.nickname);
-    if (ui.nicknameEditor) ui.nicknameEditor.classList.toggle('hidden', locked);
-    if (ui.fixedProfile) ui.fixedProfile.classList.toggle('hidden', !locked);
+    const hasRoom = !!(state.online.roomId || state.online.roomCode);
+    const compactFriendRoom = isOnlineMode() && hasRoom;
+    if (ui.startProfile) ui.startProfile.classList.toggle('hidden', compactFriendRoom);
+    if (ui.nicknameEditor) ui.nicknameEditor.classList.toggle('hidden', locked || compactFriendRoom);
+    if (ui.fixedProfile) ui.fixedProfile.classList.toggle('hidden', !locked || compactFriendRoom);
     if (ui.fixedName) ui.fixedName.textContent = locked ? state.profile.nickname : 'Player';
-    if (locked) {
+    if (compactFriendRoom) {
+      state.lobbyConfirmed = true;
+      if (ui.nickNote) ui.nickNote.textContent = 'Room ready. Host and guest are shown above.';
+    } else if (locked) {
       state.lobbyConfirmed = true;
       if (ui.nickNote) ui.nickNote.textContent = 'Nickname is locked. You can start immediately.';
     } else if (ui.nickNote) {
@@ -1907,7 +2090,8 @@
     try {
       if (!(state.online.roomId || state.online.roomCode) || !window.firebase || !firebase.database) {
         stopOnlinePresence();
-        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null };
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0 };
+        if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '';
         syncUI();
         return;
       }
@@ -1952,7 +2136,7 @@
       console.log('leave room error ignored:', e);
     }
     stopOnlinePresence();
-        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null };
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0 };
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
     setRoomListLocked(false);
     syncUI();
@@ -1984,11 +2168,17 @@
     state.online.roomTitle = room.title || state.online.roomTitle || '';
     state.online.role = isHost ? 'host' : isGuest ? 'guest' : state.online.role;
     state.online.mySide = isHost ? HUMAN : isGuest ? AI : state.online.mySide;
+    const prevGuestId = state.online.guestId || '';
+    const prevStatus = state.online.status || '';
     state.online.opponentName = isHost ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
     state.online.status = room.status || (room.guestId ? 'ready' : 'waiting');
     state.online.hostReady = !!room.hostReady;
     state.online.guestReady = !!room.guestReady;
     state.online.turnExpiresAt = Number(room.turnExpiresAt || 0);
+    state.online.hostId = room.hostId || '';
+    state.online.guestId = room.guestId || '';
+    state.online.hostName = room.hostNickname || '';
+    state.online.guestName = room.guestNickname || '';
     const hostAlive = isRoomRoleAlive(room, 'host');
     const guestAlive = isRoomRoleAlive(room, 'guest');
     if (!hostAlive && state.online.role === 'guest') {
@@ -1999,6 +2189,15 @@
       state.online.status = 'waiting';
       state.online.guestReady = false;
       state.online.opponentName = 'Waiting...';
+    }
+
+    if (state.online.role === 'host' && room.guestId && room.guestId !== prevGuestId) {
+      playRoomEventChime('join');
+      pulseRoomSlot(ui.roomGuestSlot);
+      triggerHaptic('tap');
+      if (ui.roomStatus && prevGuestId !== room.guestId && prevStatus === 'waiting') {
+        ui.roomStatus.textContent = `${room.guestNickname || 'Your friend'} joined the room.`;
+      }
     }
 
     if (room.status === 'countdown' && room.countdownAt && state.online.lastCountdownAt !== room.countdownAt) {
@@ -2043,6 +2242,7 @@
       renderBoard(undefined, undefined, state.winningLine);
       if (!state.gameOver) finishGame(room.winner || 0, state.winningLine, true);
     }
+    renderOnlinePresence(room);
     if (room.status !== 'waiting') setRoomListLocked(false);
     syncUI();
     renderLobbyStatus();
@@ -2140,6 +2340,8 @@
       ui.roomStatus.textContent = 'Firebase room sync is not available.';
       return;
     }
+    if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '1';
+    updateFriendRoomPanelVisibility();
     const typedCode = normalizeRoomCode(ui.roomCodeInput?.value);
     if (typedCode) {
       await joinOnlineRoom(typedCode);
@@ -2237,6 +2439,12 @@
     state.online.mySide = HUMAN;
     state.online.opponentName = 'Waiting...';
     state.online.status = 'waiting';
+    state.online.hostId = state.profile.id;
+    state.online.guestId = '';
+    state.online.hostName = state.profile.nickname;
+    state.online.guestName = '';
+    state.online.lastGuestSeenId = '';
+    playRoomEventChime('create');
     if (ui.roomStatus) ui.roomStatus.textContent = accessCode ? 'Private room created. Share the room title and code.' : 'Open room created. Your friend can join from the room list.';
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
     setRoomListLocked(false);
@@ -2313,6 +2521,11 @@
     state.online.mySide = state.online.role === 'host' ? HUMAN : AI;
     state.online.opponentName = state.online.role === 'host' ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
     state.online.status = room.status;
+    state.online.hostId = room.hostId || '';
+    state.online.guestId = room.guestId || '';
+    state.online.hostName = room.hostNickname || '';
+    state.online.guestName = room.guestNickname || '';
+    if (state.online.role === 'guest') playRoomEventChime('join');
     attachOnlineRoom(roomId);
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
     setRoomListLocked(false);
@@ -2498,6 +2711,19 @@
     });
   }
 
+  function updateFriendRoomPanelVisibility() {
+    const hasRoom = !!(state.online.roomId || state.online.roomCode);
+    const inFriendMode = isOnlineMode();
+    const showComposer = inFriendMode && !hasRoom;
+    if (ui.roomTitleInput) ui.roomTitleInput.classList.toggle('hidden', !showComposer);
+    if (ui.roomCodeInput) ui.roomCodeInput.classList.toggle('hidden', !showComposer);
+    if (ui.createRoomBtn) ui.createRoomBtn.classList.toggle('hidden', !showComposer);
+    if (ui.joinRoomBtn) ui.joinRoomBtn.classList.toggle('hidden', !showComposer);
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.toggle('hidden', !showComposer || !ui.openRoomsPanel.dataset.open);
+    if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !(inFriendMode && hasRoom));
+    if (ui.roomActions) ui.roomActions.classList.toggle('room-locked', inFriendMode && hasRoom);
+  }
+
   function syncUI() {
     const rank = getCurrentRankFromState();
     if (state.profile) state.profile.rank = rank;
@@ -2537,7 +2763,8 @@
     if (ui.modeFriend) ui.modeFriend.classList.toggle('active', isOnlineMode());
     if (ui.roomCodeView) ui.roomCodeView.textContent = (state.online.roomId || state.online.roomCode) ? `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' · ' + state.online.roomCode : ' · Open'}` : 'Room: ——';
     if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? (state.online.role === 'host' ? (state.online.guestReady ? 'Guest ready · press Start.' : 'Waiting for your friend to press Ready.') : (state.online.guestReady ? 'Ready locked · waiting for host start.' : 'Press Ready to enter the duel.')) : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s` : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
-    if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !(state.online.roomId || state.online.roomCode));
+    renderOnlinePresence();
+    updateFriendRoomPanelVisibility();
     ui.connectionNote.textContent = isOnlineMode() ? ((state.online.roomId || state.online.roomCode) ? `Online room ${state.online.roomTitle || (state.online.roomCode || 'Open')}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
 
     if (ui.saveStart) {
