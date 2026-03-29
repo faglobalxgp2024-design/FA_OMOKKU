@@ -262,7 +262,7 @@
     else board.push(entry);
     board.sort(compareLeaderboard);
     setLocalLeaderboard(board);
-    state.leaderboardCache = board.slice(0, 50);
+    state.leaderboardCache = board.slice(0, 30);
   }
 
   function compareLeaderboard(a, b) {
@@ -364,7 +364,7 @@
     return season;
   }
 
-  function getWeeklyLeaderboard() {
+  function getWeeklyLeaderboard().slice(0, 7) {
     ensureWeeklySeason();
     try {
       const parsed = JSON.parse(localStorage.getItem(WEEKLY_LEADERBOARD_KEY) || '[]');
@@ -406,7 +406,7 @@
       const season = ensureWeeklySeason();
       if (state.profile.weeklyKey !== season.key) { state.profile.weeklyKey = season.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
     }
-    state.leaderboardCache = getLocalLeaderboard().slice(0, 50);
+    state.leaderboardCache = getLocalLeaderboard().slice(0, 30);
   }
 
   function createShell() {
@@ -3092,16 +3092,16 @@
 
   async function renderLeaderboard(full = false) {
     let totalBoard = [];
-    try { totalBoard = await state.remoteAdapter.fetchTop(50); } catch { totalBoard = getLocalLeaderboard().slice(0, 50); }
-    totalBoard = (Array.isArray(totalBoard) ? totalBoard : []).slice(0, 50);
+    try { totalBoard = await state.remoteAdapter.fetchTop(50); } catch { totalBoard = getLocalLeaderboard().slice(0, 30); }
+    totalBoard = (Array.isArray(totalBoard) ? totalBoard : []).slice(0, 30);
     state.leaderboardCache = totalBoard;
     const weeklySeason = ensureWeeklySeason();
     let weeklyBoard = totalBoard
       .filter(p => (p.weeklyKey || weeklySeason.key) === weeklySeason.key && Number(p.weeklyWins || 0) > 0)
       .map(p => ({ ...p, totalWins: Number(p.weeklyWins || 0), totalLosses: Number(p.weeklyLosses || 0), totalGames: Number(p.weeklyGames || 0) }))
       .sort(compareLeaderboard)
-      .slice(0, 50);
-    if (!weeklyBoard.length) weeklyBoard = getWeeklyLeaderboard().slice(0, 50);
+      .slice(0, 30);
+    if (!weeklyBoard.length) weeklyBoard = getWeeklyLeaderboard().slice(0, 7).slice(0, 30);
 
     const rankMark = i => {
       if (i === 0) return { cls: 'crown-top', label: '👑' };
