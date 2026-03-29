@@ -15,6 +15,8 @@
   const STORAGE_KEY = 'fa_omok_state_v2';
   const PROFILE_KEY = 'fa_omok_profile_v2';
   const LEADERBOARD_KEY = 'fa_omok_board_v3';
+  const WEEKLY_LEADERBOARD_KEY = 'fa_omok_weekly_board_v1';
+  const WEEKLY_RESET_META_KEY = 'fa_omok_weekly_reset_meta_v1';
   const BOARD_SIZE = 15;
   const CELL = 44;
   const PADDING = 36;
@@ -139,6 +141,9 @@
     turnSecondsLeft: 60,
     turnLastAudioSecond: null,
     timeoutClaiming: false,
+    leaderboardTab: 'total',
+    confirmTimer: null,
+    confirmExpireAt: 0,
     online: {
       roomId: '',
       roomCode: '',
@@ -159,7 +164,9 @@
       hostName: '',
       guestName: '',
       lastGuestSeenId: '',
-      lastRoomPulseAt: 0
+      lastRoomPulseAt: 0,
+      panelMode: 'none',
+      lastGuestReadySeenAt: 0
     }
   };
 
@@ -328,7 +335,56 @@
     return DEFAULT_AVATARS[n % DEFAULT_AVATARS.length];
   }
 
+
+  function getWeeklyWindow(now = new Date()) {
+    const d = new Date(now);
+    const day = d.getDay();
+    const diffToSat = (day + 1) % 7;
+    const start = new Date(d);
+    start.setHours(12,0,0,0);
+    start.setDate(d.getDate() - diffToSat);
+    if (d < start) start.setDate(start.getDate() - 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    return { start, end, key: String(start.getTime()) };
+  }
+
+  function ensureWeeklySeason() {
+    const season = getWeeklyWindow();
+    let meta = null;
+    try { meta = JSON.parse(localStorage.getItem(WEEKLY_RESET_META_KEY) || 'null'); } catch {}
+    if (!meta || meta.key !== season.key) {
+      localStorage.setItem(WEEKLY_LEADERBOARD_KEY, '[]');
+      localStorage.setItem(WEEKLY_RESET_META_KEY, JSON.stringify({ key: season.key, start: season.start.getTime(), end: season.end.getTime() }));
+    }
+    return season;
+  }
+
+  function getWeeklyLeaderboard() {
+    ensureWeeklySeason();
+    try {
+      const parsed = JSON.parse(localStorage.getItem(WEEKLY_LEADERBOARD_KEY) || '[]');
+      return Array.isArray(parsed) ? sanitizeLeaderboardEntries(parsed.filter(v => Number(v.weeklyWins || 0) > 0).map(v => ({ ...v, totalWins: Number(v.weeklyWins || 0), totalLosses: Number(v.weeklyLosses || 0), totalGames: Number(v.weeklyGames || 0) }))) : [];
+    } catch { return []; }
+  }
+
+  function setWeeklyLeaderboard(entries) {
+    ensureWeeklySeason();
+    localStorage.setItem(WEEKLY_LEADERBOARD_KEY, JSON.stringify((Array.isArray(entries) ? entries : []).slice(0, 500)));
+  }
+
+  function upsertWeeklyLeaderboard(entry) {
+    ensureWeeklySeason();
+    let board = [];
+    try { board = JSON.parse(localStorage.getItem(WEEKLY_LEADERBOARD_KEY) || '[]'); } catch {}
+    const idx = board.findIndex(v => v.id === entry.id);
+    if (idx >= 0) board[idx] = { ...(board[idx] || {}), ...entry };
+    else board.push(entry);
+    setWeeklyLeaderboard(board);
+  }
+
   function restore() {
+    ensureWeeklySeason();
     const saved = getSavedState();
     const profile = getSavedProfile();
     if (saved) {
@@ -343,6 +399,8 @@
       state.profile = profile;
       state.profile.rank = getCurrentRankFromState();
       state.profile.avatar = state.profile.avatar || getAvatarBySeed(profile.id);
+      const season = ensureWeeklySeason();
+      if (state.profile.weeklyKey !== season.key) { state.profile.weeklyKey = season.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
     }
     state.leaderboardCache = getLocalLeaderboard().slice(0, 50);
   }
@@ -422,6 +480,7 @@
                     <div class="fa-mode-switch">
                       <button class="fa-chip active" id="fa-mode-ai">AI Match</button>
                       <button class="fa-chip" id="fa-mode-friend">Friend Match</button>
+                      <button class="fa-chip hidden" id="fa-mode-create-room">Create Room</button>
                     </div>
                     <div class="fa-friend-panel hidden" id="fa-friend-panel">
                       <div class="fa-friend-top">
@@ -591,6 +650,10 @@
               </div>
               <button class="fa-btn" id="fa-close-leaderboard">Close</button>
             </div>
+            <div class="fa-leader-tabs">
+              <button class="fa-chip active" id="fa-leader-tab-total">Total Ranking</button>
+              <button class="fa-chip" id="fa-leader-tab-weekly">Weekly Ranking</button>
+            </div>
             <div class="fa-modal-body" id="fa-leaderboard-list"></div>
           </div>
         </div>
@@ -600,6 +663,7 @@
             <div class="fa-confirm-icon">◆</div>
             <div class="fa-confirm-title" id="fa-confirm-title">Reset Career</div>
             <div class="fa-confirm-text" id="fa-confirm-text">Your wins, losses, and streak will be cleared.</div>
+            <div class="fa-confirm-progress hidden" id="fa-confirm-progress"><div id="fa-confirm-progress-fill"></div></div>
             <div class="fa-confirm-actions">
               <button class="fa-btn" id="fa-confirm-cancel">Cancel</button>
               <button class="fa-btn primary" id="fa-confirm-ok">Confirm</button>
@@ -686,6 +750,7 @@
       .fa-room-actions input::placeholder { color: rgba(255,248,239,.48); }
       .fa-room-actions.room-locked { grid-template-columns: 1fr; }
       .fa-room-actions.room-locked .fa-btn { width: 100%; }
+      #fa-mode-create-room { display:inline-flex; }
       .fa-room-presence {
         margin-top: 12px; padding: 14px; border-radius: 18px;
         border: 1px solid rgba(255,235,202,.12);
@@ -1018,6 +1083,10 @@
         min-width: 68px; text-align: center; padding: 8px 10px; border-radius: 999px;
         background: rgba(213,178,108,.14); color: #f0d79d; font-weight: 800; border: 1px solid rgba(213,178,108,.24);
       }
+
+      .fa-leader-tabs { display:flex; gap:10px; padding: 14px 18px 0; flex-wrap:wrap; }
+      .fa-confirm-progress { margin-top: 14px; height: 10px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.08); }
+      #fa-confirm-progress-fill { height:100%; width:100%; background: linear-gradient(90deg, #d9c07f, #7bd46a); transition: width .2s linear; }
       .fa-modal {
         position: fixed; inset: 0; background: rgba(26,15,7,.56); display: grid; place-items: center; padding: 22px; z-index: 10;
       }
@@ -1176,6 +1245,18 @@
         .fa-start-profile { flex-direction: column; text-align: center; }
         .fa-start-fields { width: 100%; text-align: left; }
         .fa-room-actions { grid-template-columns: 1fr 1fr; }
+
+        .fa-friend-panel.join-list-open .fa-room-presence,
+        .fa-friend-panel.join-list-open .fa-start-profile { display:none !important; }
+        .fa-friend-panel.join-list-open .fa-room-actions { grid-template-columns: 1fr; }
+        .fa-friend-panel.join-list-open #fa-room-title-input,
+        .fa-friend-panel.join-list-open #fa-create-room-btn,
+        .fa-friend-panel.join-list-open #fa-leave-room-btn { display:none !important; }
+        .fa-friend-panel.join-list-open #fa-room-code-input,
+        .fa-friend-panel.join-list-open #fa-join-room-btn { display:none !important; }
+        .fa-friend-panel.create-room-open .fa-room-presence,
+        .fa-friend-panel.create-room-open .fa-start-profile { display:none !important; }
+        .fa-friend-panel.create-room-open #fa-join-room-btn { display:none !important; }
         .fa-room-actions input { grid-column: 1 / -1; }
         .fa-room-presence-slots { grid-template-columns: 1fr; }
         .fa-open-rooms-list { display:flex; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; justify-content:flex-start; touch-action: pan-x; overscroll-behavior-x: contain; }
@@ -1224,6 +1305,8 @@
     ui.leaderPreview = root.querySelector('#fa-leader-preview');
     ui.leaderModal = root.querySelector('#fa-leaderboard-modal');
     ui.leaderList = root.querySelector('#fa-leaderboard-list');
+    ui.leaderTabTotal = root.querySelector('#fa-leader-tab-total');
+    ui.leaderTabWeekly = root.querySelector('#fa-leader-tab-weekly');
     ui.startScreen = root.querySelector('#fa-start-screen');
     ui.pauseScreen = root.querySelector('#fa-pause-screen');
     ui.pauseTitle = root.querySelector('#fa-pause-title');
@@ -1231,6 +1314,8 @@
     ui.confirmModal = root.querySelector('#fa-confirm-modal');
     ui.confirmTitle = root.querySelector('#fa-confirm-title');
     ui.confirmText = root.querySelector('#fa-confirm-text');
+    ui.confirmProgress = root.querySelector('#fa-confirm-progress');
+    ui.confirmProgressFill = root.querySelector('#fa-confirm-progress-fill');
     ui.lobbyText = root.querySelector('#fa-lobby-text');
     ui.lobbyResult = root.querySelector('#fa-lobby-result');
     ui.lobbyResultTitle = root.querySelector('#fa-lobby-result-title');
@@ -1251,6 +1336,7 @@
     ui.friendPanel = root.querySelector('#fa-friend-panel');
     ui.modeAi = root.querySelector('#fa-mode-ai');
     ui.modeFriend = root.querySelector('#fa-mode-friend');
+    ui.modeCreateRoom = root.querySelector('#fa-mode-create-room');
     ui.roomTitleInput = root.querySelector('#fa-room-title-input');
     ui.roomCodeInput = root.querySelector('#fa-room-code-input');
     ui.roomCodeView = root.querySelector('#fa-room-code-view');
@@ -1274,6 +1360,8 @@
 
     root.querySelector('#fa-open-leaderboard').addEventListener('click', openLeaderboard);
     root.querySelector('#fa-close-leaderboard').addEventListener('click', closeLeaderboard);
+    if (ui.leaderTabTotal) ui.leaderTabTotal.addEventListener('click', () => switchLeaderboardTab('total'));
+    if (ui.leaderTabWeekly) ui.leaderTabWeekly.addEventListener('click', () => switchLeaderboardTab('weekly'));
     root.querySelector('#fa-save-start').addEventListener('click', startGameFromLobby);
     root.querySelector('#fa-confirm-profile-btn').addEventListener('click', confirmLobbyProfile);
     root.querySelector('#fa-newgame-btn').addEventListener('click', handleNewMatch);
@@ -1292,6 +1380,7 @@
     ui.placeBtn.addEventListener('click', confirmPendingMove);
     ui.modeAi.addEventListener('click', () => switchMatchMode('ai'));
     ui.modeFriend.addEventListener('click', () => switchMatchMode('friend'));
+    if (ui.modeCreateRoom) ui.modeCreateRoom.addEventListener('click', openCreateRoomComposer);
     ui.createRoomBtn.addEventListener('click', createOnlineRoom);
     ui.joinRoomBtn.addEventListener('click', openJoinRoomList);
     ui.leaveRoomBtn.addEventListener('click', leaveOnlineRoom);
@@ -1786,6 +1875,13 @@
     }
 
     state.lobbyConfirmed = true;
+    const weeklySeason = ensureWeeklySeason();
+    if (state.profile) {
+      if (state.profile.weeklyKey !== weeklySeason.key) { state.profile.weeklyKey = weeklySeason.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
+      state.profile.weeklyGames = Number(state.profile.weeklyGames || 0) + 1;
+      if (winner === mySide) state.profile.weeklyWins = Number(state.profile.weeklyWins || 0) + 1;
+      else if (winner === oppSide) state.profile.weeklyLosses = Number(state.profile.weeklyLosses || 0) + 1;
+    }
     saveState();
     renderLobbyStatus();
     updateAvatars();
@@ -2078,17 +2174,64 @@
     state.matchMode = mode === 'friend' ? 'friend' : 'ai';
     if (state.matchMode === 'ai') {
       state.online.status = 'idle';
+      state.online.panelMode = 'none';
+    } else if (!(state.online.roomId || state.online.roomCode)) {
+      state.online.panelMode = 'none';
     }
     setRoomListLocked(false);
     syncUI();
     renderLobbyStatus();
   }
 
+  function openCreateRoomComposer() {
+    if (!isOnlineMode()) switchMatchMode('friend');
+    state.online.panelMode = 'create';
+    if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '';
+    setRoomListLocked(false);
+    syncUI();
+    if (ui.roomTitleInput) setTimeout(() => ui.roomTitleInput.focus(), 0);
+  }
+
+  function showHostStartRequest(room) {
+    if (!room || state.online.role !== 'host' || !room.guestId || !room.guestReady) return;
+    const seenKey = String(room.updatedAt || room.guestPingAt || Date.now());
+    if (state.online.lastGuestReadySeenAt === seenKey) return;
+    state.online.lastGuestReadySeenAt = seenKey;
+    openConfirm({
+      title: 'Start Match?',
+      text: `${room.guestNickname || 'Guest'} is ready. Accept and start the match?`,
+      confirmLabel: 'Accept',
+      timeoutMs: 60000,
+      onConfirm: async () => {
+        if (!window.firebase || !firebase.database) return;
+        playRoomEventChime('join');
+        await firebase.database().ref(getRoomPath(state.online.roomId || state.online.roomCode)).update({
+          hostReady: true,
+          hostPingAt: Date.now(),
+          status: 'countdown',
+          countdownAt: Date.now(),
+          winner: 0,
+          winningLine: [],
+          board: createBoard(),
+          turn: HUMAN,
+          turnExpiresAt: 0,
+          moveCount: 0,
+          lastMove: null,
+          updatedAt: Date.now()
+        });
+        ui.roomStatus.textContent = 'Starting duel...';
+      },
+      onCancel: async () => {
+        ui.roomStatus.textContent = 'Start request expired. Waiting for guest ready.';
+      }
+    });
+  }
+
   async function leaveOnlineRoom() {
     try {
       if (!(state.online.roomId || state.online.roomCode) || !window.firebase || !firebase.database) {
         stopOnlinePresence();
-        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0 };
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0, panelMode: 'none', lastGuestReadySeenAt: 0 };
         if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '';
         syncUI();
         return;
@@ -2134,8 +2277,8 @@
       console.log('leave room error ignored:', e);
     }
     stopOnlinePresence();
-        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0 };
-    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0, panelMode: 'none', lastGuestReadySeenAt: 0 };
+    if (ui.openRoomsPanel) { ui.openRoomsPanel.classList.add('hidden'); ui.openRoomsPanel.dataset.open = ''; }
     setRoomListLocked(false);
     syncUI();
     renderLobbyStatus();
@@ -2168,6 +2311,7 @@
     state.online.mySide = isHost ? HUMAN : isGuest ? AI : state.online.mySide;
     const prevGuestId = state.online.guestId || '';
     const prevStatus = state.online.status || '';
+    const prevGuestReady = !!state.online.guestReady;
     state.online.opponentName = isHost ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
     state.online.status = room.status || (room.guestId ? 'ready' : 'waiting');
     state.online.hostReady = !!room.hostReady;
@@ -2241,6 +2385,9 @@
       if (!state.gameOver) finishGame(room.winner || 0, state.winningLine, true);
     }
     renderOnlinePresence(room);
+    if (state.online.role === 'host' && room.status === 'ready' && room.guestReady && !prevGuestReady) {
+      showHostStartRequest(room);
+    }
     if (room.status !== 'waiting') setRoomListLocked(false);
     syncUI();
     renderLobbyStatus();
@@ -2297,7 +2444,7 @@
   function renderOpenRooms(rooms) {
     if (!ui.openRoomsPanel || !ui.openRoomsList) return;
     ui.openRoomsPanel.classList.remove('hidden');
-    setRoomListLocked(true);
+    setRoomListLocked(false);
     ui.openRoomsList.classList.toggle('single-room', rooms.length === 1);
     if (!rooms.length) {
       ui.openRoomsList.innerHTML = '<div class="fa-room-empty">No open rooms right now.</div>';
@@ -2334,17 +2481,13 @@
   }
 
   async function openJoinRoomList() {
+    state.online.panelMode = 'join';
     if (!window.firebase || !firebase.database) {
       ui.roomStatus.textContent = 'Firebase room sync is not available.';
       return;
     }
     if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '1';
     updateFriendRoomPanelVisibility();
-    const typedCode = normalizeRoomCode(ui.roomCodeInput?.value);
-    if (typedCode) {
-      await joinOnlineRoom(typedCode);
-      return;
-    }
     ui.roomStatus.textContent = 'Loading open rooms...';
     if (ui.openRoomsPanel) ui.openRoomsPanel.classList.remove('hidden');
     if (ui.openRoomsList) ui.openRoomsList.innerHTML = '<div class="fa-room-empty">Loading…</div>';
@@ -2433,6 +2576,7 @@
     state.online.roomId = roomId;
     state.online.roomCode = accessCode || '';
     state.online.roomTitle = roomTitle;
+    state.online.panelMode = 'none';
     state.online.role = 'host';
     state.online.mySide = HUMAN;
     state.online.opponentName = 'Waiting...';
@@ -2444,7 +2588,7 @@
     state.online.lastGuestSeenId = '';
     playRoomEventChime('create');
     if (ui.roomStatus) ui.roomStatus.textContent = accessCode ? 'Private room created. Share the room title and code.' : 'Open room created. Your friend can join from the room list.';
-    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+    if (ui.openRoomsPanel) { ui.openRoomsPanel.classList.add('hidden'); ui.openRoomsPanel.dataset.open = ''; }
     setRoomListLocked(false);
     attachOnlineRoom(roomId);
     syncUI();
@@ -2515,6 +2659,7 @@
     state.online.roomId = roomId;
     state.online.roomCode = room.accessCode || room.code || '';
     state.online.roomTitle = room.title || '';
+    state.online.panelMode = 'none';
     state.online.role = room.hostId === state.profile.id ? 'host' : 'guest';
     state.online.mySide = state.online.role === 'host' ? HUMAN : AI;
     state.online.opponentName = state.online.role === 'host' ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
@@ -2525,8 +2670,9 @@
     state.online.guestName = room.guestNickname || '';
     if (state.online.role === 'guest') playRoomEventChime('join');
     attachOnlineRoom(roomId);
-    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.add('hidden');
+    if (ui.openRoomsPanel) { ui.openRoomsPanel.classList.add('hidden'); ui.openRoomsPanel.dataset.open = ''; }
     setRoomListLocked(false);
+    if (ui.openRoomsPanel) { ui.openRoomsPanel.classList.add('hidden'); ui.openRoomsPanel.dataset.open = ''; }
     if (ui.roomStatus) ui.roomStatus.textContent = `Joined ${room.title || 'room'} · Press Ready to enter the duel.`;
     openStartScreen();
     syncUI();
@@ -2602,21 +2748,7 @@
         syncUI();
         return;
       }
-      await ref.update({
-        hostReady: true,
-        hostPingAt: Date.now(),
-        status: 'countdown',
-        countdownAt: Date.now(),
-        winner: 0,
-        winningLine: [],
-        board: createBoard(),
-        turn: HUMAN,
-        turnExpiresAt: 0,
-        moveCount: 0,
-        lastMove: null,
-        updatedAt: Date.now()
-      });
-      ui.roomStatus.textContent = 'Starting duel...';
+      showHostStartRequest(room);
       return;
     }
   }
@@ -2659,7 +2791,7 @@
     if (isOnlineMode()) {
       if (!(state.online.roomId || state.online.roomCode)) ui.lobbyText.textContent = 'Create your room title or open the room list, then start your online friendly match.';
       else if (state.online.status === 'waiting') ui.lobbyText.textContent = `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' (' + state.online.roomCode + ')' : ''} is ready. ${state.online.roomCode ? 'Share the code and wait for your friend.' : 'Your friend can join from the room list.'}`;
-      else if (state.online.status === 'ready') ui.lobbyText.textContent = state.online.role === 'host' ? `${state.online.guestReady ? 'Guest ready. Press Start to begin the duel.' : 'Waiting for your friend to press Ready.'}` : `${state.online.guestReady ? 'Ready locked. Waiting for the host to start.' : 'Press Ready to join the duel.'}`;
+      else if (state.online.status === 'ready') ui.lobbyText.textContent = state.online.role === 'host' ? `${state.online.guestReady ? 'Guest ready. Accept to begin the duel.' : 'Waiting for your friend to press Ready.'}` : `${state.online.guestReady ? 'Ready locked. Waiting for the host to start.' : 'Press Ready to join the duel.'}`;
       else ui.lobbyText.textContent = `Online room ${state.online.roomTitle || (state.online.roomCode || 'Open Room')} synced.`;
     } else {
       ui.lobbyText.textContent = state.profile ? 'Press the center button to begin your next ranked match.' : 'Create your name, then begin your climb on the ladder.';
@@ -2673,19 +2805,50 @@
     ui.lobbyResultText.textContent = `${result.text} · ${summary}`;
   }
 
-  function openConfirm({ title, text, onConfirm }) {
+  function openConfirm({ title, text, onConfirm, onCancel, confirmLabel = 'Confirm', timeoutMs = 0 }) {
     ui.confirmTitle.textContent = title;
     ui.confirmText.textContent = text;
     ui.confirmModal.classList.remove('hidden');
     const ok = ui.root.querySelector('#fa-confirm-ok');
+    const cancel = ui.root.querySelector('#fa-confirm-cancel');
+    ok.textContent = confirmLabel;
+    if (state.confirmTimer) clearInterval(state.confirmTimer);
+    state.confirmTimer = null;
+    state.confirmExpireAt = 0;
+    if (ui.confirmProgress) ui.confirmProgress.classList.toggle('hidden', !timeoutMs);
+    if (ui.confirmProgressFill) ui.confirmProgressFill.style.width = '100%';
+    cancel.onclick = () => {
+      const cb = onCancel;
+      closeConfirm();
+      if (typeof cb === 'function') cb();
+    };
     ok.onclick = () => {
       closeConfirm();
       if (typeof onConfirm === 'function') onConfirm();
     };
+    if (timeoutMs && ui.confirmProgressFill) {
+      state.confirmExpireAt = Date.now() + timeoutMs;
+      state.confirmTimer = setInterval(() => {
+        const left = Math.max(0, state.confirmExpireAt - Date.now());
+        ui.confirmProgressFill.style.width = ((left / timeoutMs) * 100).toFixed(2) + '%';
+        if (left <= 0) {
+          const cb = onCancel;
+          closeConfirm();
+          if (typeof cb === 'function') cb();
+        }
+      }, 200);
+    }
   }
 
   function closeConfirm() {
     ui.confirmModal.classList.add('hidden');
+    if (state.confirmTimer) clearInterval(state.confirmTimer);
+    state.confirmTimer = null;
+    state.confirmExpireAt = 0;
+    if (ui.confirmProgress) ui.confirmProgress.classList.add('hidden');
+    if (ui.confirmProgressFill) ui.confirmProgressFill.style.width = '100%';
+    const ok = ui.root.querySelector('#fa-confirm-ok');
+    if (ok) ok.textContent = 'Confirm';
   }
 
   function resetCareer() {
@@ -2700,7 +2863,14 @@
         state.totalGames = 0;
         state.gradeScore = 0;
         if (state.profile) state.profile.rank = getCurrentRankFromState();
-        saveState();
+        const weeklySeason = ensureWeeklySeason();
+    if (state.profile) {
+      if (state.profile.weeklyKey !== weeklySeason.key) { state.profile.weeklyKey = weeklySeason.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
+      state.profile.weeklyGames = Number(state.profile.weeklyGames || 0) + 1;
+      if (winner === mySide) state.profile.weeklyWins = Number(state.profile.weeklyWins || 0) + 1;
+      else if (winner === oppSide) state.profile.weeklyLosses = Number(state.profile.weeklyLosses || 0) + 1;
+    }
+    saveState();
         syncProfileToLeaderboard();
         syncUI();
         renderLeaderboard();
@@ -2712,14 +2882,24 @@
   function updateFriendRoomPanelVisibility() {
     const hasRoom = !!(state.online.roomId || state.online.roomCode);
     const inFriendMode = isOnlineMode();
-    const showComposer = inFriendMode && !hasRoom;
-    if (ui.roomTitleInput) ui.roomTitleInput.classList.toggle('hidden', !showComposer);
-    if (ui.roomCodeInput) ui.roomCodeInput.classList.toggle('hidden', !showComposer);
-    if (ui.createRoomBtn) ui.createRoomBtn.classList.toggle('hidden', !showComposer);
-    if (ui.joinRoomBtn) ui.joinRoomBtn.classList.toggle('hidden', !showComposer);
-    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.toggle('hidden', !showComposer || !ui.openRoomsPanel.dataset.open);
+    const panelMode = state.online.panelMode || 'none';
+    const joinListOpen = inFriendMode && !hasRoom && panelMode === 'join';
+    const createComposerOpen = inFriendMode && !hasRoom && panelMode === 'create';
+    const showEntryButtons = inFriendMode && !hasRoom && !joinListOpen && !createComposerOpen;
+    if (ui.roomTitleInput) ui.roomTitleInput.classList.toggle('hidden', !createComposerOpen);
+    if (ui.roomCodeInput) ui.roomCodeInput.classList.toggle('hidden', !createComposerOpen);
+    if (ui.createRoomBtn) ui.createRoomBtn.classList.toggle('hidden', !createComposerOpen);
+    if (ui.joinRoomBtn) ui.joinRoomBtn.classList.toggle('hidden', !showEntryButtons);
+    if (ui.modeCreateRoom) ui.modeCreateRoom.classList.toggle('hidden', !(inFriendMode && !hasRoom));
+    if (ui.openRoomsPanel) ui.openRoomsPanel.classList.toggle('hidden', !joinListOpen);
     if (ui.leaveRoomBtn) ui.leaveRoomBtn.classList.toggle('hidden', !(inFriendMode && hasRoom));
     if (ui.roomActions) ui.roomActions.classList.toggle('room-locked', inFriendMode && hasRoom);
+    if (ui.friendPanel) {
+      ui.friendPanel.classList.toggle('join-list-open', joinListOpen);
+      ui.friendPanel.classList.toggle('create-room-open', createComposerOpen);
+    }
+    if (ui.roomPresence) ui.roomPresence.classList.toggle('hidden', joinListOpen || createComposerOpen || !inFriendMode || !hasRoom);
+    if (ui.startProfile) ui.startProfile.classList.toggle('hidden', joinListOpen || createComposerOpen || (inFriendMode && hasRoom));
   }
 
   function syncUI() {
@@ -2760,7 +2940,7 @@
     if (ui.modeAi) ui.modeAi.classList.toggle('active', !isOnlineMode());
     if (ui.modeFriend) ui.modeFriend.classList.toggle('active', isOnlineMode());
     if (ui.roomCodeView) ui.roomCodeView.textContent = (state.online.roomId || state.online.roomCode) ? `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' · ' + state.online.roomCode : ' · Open'}` : 'Room: ——';
-    if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? (state.online.role === 'host' ? (state.online.guestReady ? 'Guest ready · press Start.' : 'Waiting for your friend to press Ready.') : (state.online.guestReady ? 'Ready locked · waiting for host start.' : 'Press Ready to enter the duel.')) : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s` : state.online.status === 'countdown' ? 'Starting now...' : 'Create or join a room.') : 'Create or join a room.';
+    if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? (state.online.role === 'host' ? (state.online.guestReady ? 'Guest ready · accept to start.' : 'Waiting for your friend to press Ready.') : (state.online.guestReady ? 'Ready locked · waiting for host start.' : 'Press Ready to enter the duel.')) : state.online.status === 'waiting' ? 'Waiting for friend to join.' : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s` : state.online.status === 'countdown' ? 'Starting now...' : ((state.online.panelMode || 'none') === 'join' ? 'Choose an open room to join.' : (state.online.panelMode === 'create' ? 'Enter a room title and optional code.' : 'Choose Create Room or Join Room.'))) : 'Create or join a room.';
     renderOnlinePresence();
     updateFriendRoomPanelVisibility();
     ui.connectionNote.textContent = isOnlineMode() ? ((state.online.roomId || state.online.roomCode) ? `Online room ${state.online.roomTitle || (state.online.roomCode || 'Open')}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
@@ -2840,9 +3020,14 @@
       rank: getCurrentRankFromState(),
       gradeScore: state.gradeScore,
       streak: state.streak,
-      bestStreak: state.bestStreak
+      bestStreak: state.bestStreak,
+      weeklyWins: Number((state.profile && state.profile.weeklyWins) || 0),
+      weeklyLosses: Number((state.profile && state.profile.weeklyLosses) || 0),
+      weeklyGames: Number((state.profile && state.profile.weeklyGames) || 0),
+      weeklyKey: ensureWeeklySeason().key
     };
     await state.remoteAdapter.saveEntry(entry);
+    upsertWeeklyLeaderboard(entry);
     state.leaderboardCache = await state.remoteAdapter.fetchTop(50);
   }
 
@@ -2855,15 +3040,37 @@
     ui.leaderModal.classList.add('hidden');
   }
 
+  function formatDateTimeEnglish(dateLike) {
+    const d = new Date(dateLike);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const month = months[d.getMonth()] || '';
+    const day = d.getDate();
+    let hour = d.getHours();
+    const minute = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12 || 12;
+    return `${month} ${day}, ${hour}:${minute} ${ampm}`;
+  }
+
+  function switchLeaderboardTab(tab) {
+    state.leaderboardTab = tab === 'weekly' ? 'weekly' : 'total';
+    if (ui.leaderTabTotal) ui.leaderTabTotal.classList.toggle('active', state.leaderboardTab === 'total');
+    if (ui.leaderTabWeekly) ui.leaderTabWeekly.classList.toggle('active', state.leaderboardTab === 'weekly');
+    renderLeaderboard(true);
+  }
+
   async function renderLeaderboard(full = false) {
-    let board = [];
-    try {
-      board = await state.remoteAdapter.fetchTop(30);
-    } catch {
-      board = getLocalLeaderboard().slice(0, 30);
-    }
-    board = (Array.isArray(board) ? board : []).slice(0, 30);
-    state.leaderboardCache = board;
+    let totalBoard = [];
+    try { totalBoard = await state.remoteAdapter.fetchTop(50); } catch { totalBoard = getLocalLeaderboard().slice(0, 50); }
+    totalBoard = (Array.isArray(totalBoard) ? totalBoard : []).slice(0, 50);
+    state.leaderboardCache = totalBoard;
+    const weeklySeason = ensureWeeklySeason();
+    let weeklyBoard = totalBoard
+      .filter(p => (p.weeklyKey || weeklySeason.key) === weeklySeason.key && Number(p.weeklyWins || 0) > 0)
+      .map(p => ({ ...p, totalWins: Number(p.weeklyWins || 0), totalLosses: Number(p.weeklyLosses || 0), totalGames: Number(p.weeklyGames || 0) }))
+      .sort(compareLeaderboard)
+      .slice(0, 50);
+    if (!weeklyBoard.length) weeklyBoard = getWeeklyLeaderboard().slice(0, 50);
 
     const rankMark = i => {
       if (i === 0) return { cls: 'crown-top', label: '👑' };
@@ -2875,14 +3082,14 @@
       return { cls: '', label: `${i + 1}${ordinalSuffix(i + 1)}` };
     };
 
-    const buildRow = (p, i) => {
+    const buildRow = (p, i, weekly = false) => {
       const mark = rankMark(i);
       return `
       <div class="fa-rank-row">
         <div class="fa-rank-pos ${mark.cls}">${mark.label}</div>
         <div class="fa-rank-main">
           <div class="fa-rank-name">${escapeHtml(p.nickname)}</div>
-          <div class="fa-rank-sub">${p.totalGames || 0} games · ${p.totalWins || 0} wins · ${p.totalLosses || 0} losses · best streak ${p.bestStreak || 0}</div>
+          <div class="fa-rank-sub">${p.totalGames || 0} games · ${p.totalWins || 0} wins · ${p.totalLosses || 0} losses${weekly ? ' · resets Sat 12:00 PM' : ' · best streak ' + (p.bestStreak || 0)}</div>
         </div>
         <div class="fa-rank-badge">${escapeHtml(p.rank || '10k')}</div>
       </div>
@@ -2900,8 +3107,12 @@
       </div>
     `;
 
-    ui.leaderPreview.innerHTML = board.length ? board.map(buildRow).join('') : empty;
-    if (full) ui.leaderList.innerHTML = board.length ? board.map(buildRow).join('') : empty;
+    ui.leaderPreview.innerHTML = totalBoard.length ? totalBoard.slice(0,30).map((p,i)=>buildRow(p,i,false)).join('') : empty;
+    if (full) {
+      const activeBoard = state.leaderboardTab === 'weekly' ? weeklyBoard : totalBoard;
+      const weeklyHead = state.leaderboardTab === 'weekly' ? `<div class="fa-mini-note" style="margin:0 0 12px 0;">Weekly season: ${formatDateTimeEnglish(weeklySeason.start)} ~ ${formatDateTimeEnglish(weeklySeason.end)}</div>` : '';
+      ui.leaderList.innerHTML = weeklyHead + (activeBoard.length ? activeBoard.slice(0,30).map((p,i)=>buildRow(p,i,state.leaderboardTab === 'weekly')).join('') : empty);
+    }
   }
 
   function escapeHtml(v) {
@@ -3059,6 +3270,13 @@
       triggerWinBurst('loss');
       triggerHaptic('loss');
       fanfare(false);
+    }
+    const weeklySeason = ensureWeeklySeason();
+    if (state.profile) {
+      if (state.profile.weeklyKey !== weeklySeason.key) { state.profile.weeklyKey = weeklySeason.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
+      state.profile.weeklyGames = Number(state.profile.weeklyGames || 0) + 1;
+      if (winner === mySide) state.profile.weeklyWins = Number(state.profile.weeklyWins || 0) + 1;
+      else if (winner === oppSide) state.profile.weeklyLosses = Number(state.profile.weeklyLosses || 0) + 1;
     }
     saveState();
     if (isOnlineMode() && !fromRemote) await pushOnlineMove();
