@@ -1907,11 +1907,11 @@
 
     state.lobbyConfirmed = true;
     const weeklySeason = ensureWeeklySeason();
-    if (state.profile) {
-      if (state.profile.weeklyKey !== weeklySeason.key) { state.profile.weeklyKey = weeklySeason.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
-      state.profile.weeklyGames = Number(state.profile.weeklyGames || 0) + 1;
-      if (winner === mySide) state.profile.weeklyWins = Number(state.profile.weeklyWins || 0) + 1;
-      else if (winner === oppSide) state.profile.weeklyLosses = Number(state.profile.weeklyLosses || 0) + 1;
+    if (state.profile && state.profile.weeklyKey !== weeklySeason.key) {
+      state.profile.weeklyKey = weeklySeason.key;
+      state.profile.weeklyWins = 0;
+      state.profile.weeklyLosses = 0;
+      state.profile.weeklyGames = 0;
     }
     saveState();
     renderLobbyStatus();
@@ -1919,7 +1919,7 @@
     updateLobbyProfileUI();
     syncLobbyActions();
     updateFullscreenButtons();
-    ui.nickNote.textContent = 'Nickname locked. Press Game Start, or use Play Fullscreen on mobile.';
+    ui.nickNote.textContent = 'Nickname saved. Press Game Start, or use Play Fullscreen on mobile.';
     syncLobbyActions();
     syncUI();
     return true;
