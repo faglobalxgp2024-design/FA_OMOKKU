@@ -335,6 +335,10 @@
     return DEFAULT_AVATARS[n % DEFAULT_AVATARS.length];
   }
 
+  function isRankedAiMatch() {
+    return state.matchMode === 'ai' && !isOnlineMode();
+  }
+
 
   function getWeeklyWindow(now = new Date()) {
     const d = new Date(now);
@@ -3036,7 +3040,7 @@
   }
 
   async function syncProfileToLeaderboard() {
-    if (!state.profile || state.totalGames <= 0) return;
+    if (!state.profile || state.totalGames <= 0 || !isRankedAiMatch()) return;
     const entry = {
       id: state.profile.id,
       nickname: state.profile.nickname,
@@ -3273,33 +3277,42 @@
 
   async function finishGame(winner, line, fromRemote = false) {
     state.pendingLock = false;
-    state.totalGames += 1;
+    const rankedAi = isRankedAiMatch();
+    if (rankedAi) state.totalGames += 1;
     let title = 'Draw';
     let text = 'No winner this round.';
     const mySide = getMySide();
     const oppSide = getOpponentSide();
     if (winner === mySide) {
-      state.totalWins += 1;
-      applyRankedResult(true);
-      state.streak += 1;
-      state.bestStreak = Math.max(state.bestStreak, state.streak);
+      if (rankedAi) {
+        state.totalWins += 1;
+        applyRankedResult(true);
+        state.streak += 1;
+        state.bestStreak = Math.max(state.bestStreak, state.streak);
+      }
       title = 'Victory!';
-      text = isOnlineMode() ? `Beautiful finish. ${getCurrentRankFromState()} · Friendly win secured.` : `Elegant finish. ${getCurrentRankFromState()} · Streak ${state.streak}`;
+      text = rankedAi
+        ? `Elegant finish. ${getCurrentRankFromState()} · Streak ${state.streak}`
+        : `Friendly match win secured.`;
       triggerWinBurst('win');
       triggerHaptic('win');
       fanfare(true);
     } else if (winner === oppSide) {
-      state.totalLosses += 1;
-      applyRankedResult(false);
-      state.streak = 0;
+      if (rankedAi) {
+        state.totalLosses += 1;
+        applyRankedResult(false);
+        state.streak = 0;
+      }
       title = 'Defeat!';
-      text = isOnlineMode() ? `Your friend took the round. ${getCurrentRankFromState()} · Try again.` : `The AI held the line. ${getCurrentRankFromState()} · Challenge ${getAiTitle()}`;
+      text = rankedAi
+        ? `The AI held the line. ${getCurrentRankFromState()} · Challenge ${getAiTitle()}`
+        : `Friendly match finished. Try again.`;
       triggerWinBurst('loss');
       triggerHaptic('loss');
       fanfare(false);
     }
     const weeklySeason = ensureWeeklySeason();
-    if (state.profile) {
+    if (rankedAi && state.profile) {
       if (state.profile.weeklyKey !== weeklySeason.key) { state.profile.weeklyKey = weeklySeason.key; state.profile.weeklyWins = 0; state.profile.weeklyLosses = 0; state.profile.weeklyGames = 0; }
       state.profile.weeklyGames = Number(state.profile.weeklyGames || 0) + 1;
       if (winner === mySide) state.profile.weeklyWins = Number(state.profile.weeklyWins || 0) + 1;
