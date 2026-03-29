@@ -1152,7 +1152,7 @@
       .fa-board-wrap .fa-place-action.hidden,
       .fa-board-wrap .fa-countdown.hidden { display: none; }
       body.fa-roomlist-lock { overflow:hidden !important; overscroll-behavior:none; }
-      body.fa-roomlist-lock .fa-open-rooms-list { touch-action: pan-x; }
+      body.fa-roomlist-lock .fa-open-rooms-list { touch-action: pan-y !important; overflow-x: hidden !important; overflow-y: auto !important; }
 
       .fa-confirm-card { width: min(100%, 420px); }
       .fa-confirm-icon {
@@ -1261,30 +1261,35 @@
         .fa-room-presence-slots { grid-template-columns: 1fr; }
         .fa-open-rooms { max-height: 46vh; display: flex; flex-direction: column; }
         .fa-open-rooms-list {
-          display:flex;
+          display: grid !important;
+          grid-template-columns: minmax(0, 1fr) !important;
           flex-direction: column;
           flex-wrap: nowrap !important;
           gap: 10px;
-          overflow-x: hidden;
-          overflow-y: auto;
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
           max-height: 32vh;
+          width: 100%;
           -webkit-overflow-scrolling: touch;
           padding-bottom: 2px;
           justify-content:flex-start;
-          touch-action: pan-y;
+          align-items: stretch;
+          touch-action: pan-y !important;
           overscroll-behavior-y: contain;
           scroll-snap-type: y proximity;
         }
-        .fa-open-rooms-list.single-room { overflow-y: auto; justify-content: flex-start; }
+        .fa-open-rooms-list.single-room { overflow-y: auto !important; overflow-x: hidden !important; justify-content: flex-start; }
         .fa-room-item {
+          display: grid;
           grid-template-columns: minmax(0,1fr) auto;
-          min-width: 100%;
-          width: 100%;
-          max-width: 100%;
-          flex: 0 0 auto;
+          min-width: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          flex: none !important;
+          margin: 0;
           scroll-snap-align: start;
         }
-        .fa-open-rooms-list.single-room .fa-room-item { min-width: 100%; width: 100%; max-width: 100%; flex: 0 0 auto; }
+        .fa-open-rooms-list.single-room .fa-room-item { min-width: 0 !important; width: 100% !important; max-width: 100% !important; flex: none !important; }
         .fa-board-wrap { min-height: 72vh; }
       }
     `;
