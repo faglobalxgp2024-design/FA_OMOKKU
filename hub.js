@@ -1,4 +1,4 @@
-function ordinalSuffix(n) {
+ function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
     if (mod100 >= 11 && mod100 <= 13) return 'th';
@@ -986,6 +986,7 @@ function ordinalSuffix(n) {
       .fa-friend-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(110px,150px) auto; gap:10px; align-items:center; padding:14px; border-radius:20px; min-width:0; width:100%; max-width:100%; flex:none; background: linear-gradient(180deg, rgba(255,247,231,.11), rgba(255,247,231,.05)), linear-gradient(135deg, rgba(118,72,31,.42), rgba(72,41,20,.34) 55%, rgba(48,28,12,.42)); border:1px solid rgba(255,235,202,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 34px rgba(28,13,3,.18); }
       .fa-friend-row-meta { min-width:0; }
       .fa-friend-name { font-weight:900; color:#fff4df; font-size:15px; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .fa-friend-rank { color:#f1d598; font-size:12px; font-weight:900; margin-left:4px; }
       .fa-friend-sub { color: var(--muted); font-size:12px; margin-top:3px; }
       .fa-friend-stake { width:100%; min-width:0; background: rgba(255,255,255,.06); color:#fff8ef; border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px 14px; font-size:14px; }
 
@@ -2080,9 +2081,10 @@ function ordinalSuffix(n) {
     ui.friendsList.innerHTML = list.map(friend => {
       const online = isUserOnline(friend);
       const stake = normalizeStarWager(state.online.starWager || STAR_BALANCE_DEFAULT, STAR_WAGER_OPTIONS[0]);
+      const rank = escapeHtml(friend.rank || '1 Grade');
       return `<div class="fa-friend-row">
         <div class="fa-friend-row-meta">
-          <div class="fa-friend-name">${escapeHtml(friend.nickname || 'Friend')}</div>
+          <div class="fa-friend-name">${escapeHtml(friend.nickname || 'Friend')} <span class="fa-friend-rank">[${rank}]</span></div>
           <div class="fa-friend-sub">${online ? 'Online now' : 'Offline'} · ★ ${formatNumber(friend.stars || 0)}</div>
         </div>
         <input class="fa-friend-stake" data-friend-stake="${escapeHtml(friend.id || '')}" type="number" min="1" step="1" value="${stake}" placeholder="Stake" />
@@ -2109,23 +2111,34 @@ function ordinalSuffix(n) {
       openNoticePopup('Not Enough Stars', `You need ★ ${formatNumber(wager)} to start this challenge.`, 'Confirm');
       return;
     }
-    try {
-      const friend = (state.friends.list || []).find(v => v.id === friendId);
-      const ref = firebase.database().ref('omokFriendChallenges/' + friendId).push();
-      await ref.set({
-        id: ref.key,
-        challengerId: state.profile.id,
-        challengerNickname: state.profile.nickname,
-        targetId: friendId,
-        targetNickname: friend?.nickname || 'Friend',
-        stake: wager,
-        status: 'pending',
-        createdAt: Date.now()
-      });
-      if (ui.roomStatus) ui.roomStatus.textContent = `${friend?.nickname || 'Friend'} challenge sent for ★ ${formatNumber(wager)}.`;
-    } catch (e) {
-      console.log('send challenge ignored:', e);
-    }
+    const friend = (state.friends.list || []).find(v => v.id === friendId);
+    initAudio();
+    try { playRoomEventChime('join'); } catch (e) {}
+    openConfirm({
+      title: 'Send Challenge?',
+      text: `${friend?.nickname || 'Friend'} [${friend?.rank || '1 Grade'}] · ★ ${formatNumber(friend?.stars || 0)}\n\nDo you want to send a ★ ${formatNumber(wager)} challenge?`,
+      confirmLabel: 'Confirm',
+      onConfirm: async () => {
+        try {
+          const ref = firebase.database().ref('omokFriendChallenges/' + friendId).push();
+          await ref.set({
+            id: ref.key,
+            challengerId: state.profile.id,
+            challengerNickname: state.profile.nickname,
+            challengerRank: getCurrentRankFromState(),
+            targetId: friendId,
+            targetNickname: friend?.nickname || 'Friend',
+            targetRank: friend?.rank || '1 Grade',
+            stake: wager,
+            status: 'pending',
+            createdAt: Date.now()
+          });
+          if (ui.roomStatus) ui.roomStatus.textContent = `${friend?.nickname || 'Friend'} challenge sent for ★ ${formatNumber(wager)}.`;
+        } catch (e) {
+          console.log('send challenge ignored:', e);
+        }
+      }
+    });
   }
 
   async function subscribeFriendChallenges() {
@@ -2153,7 +2166,7 @@ function ordinalSuffix(n) {
     if (!incoming.length) return;
     const top = incoming.map(ch => `<div class="fa-friend-row">
       <div class="fa-friend-row-meta">
-        <div class="fa-friend-name">${escapeHtml(ch.challengerNickname || 'Friend')} challenged you</div>
+        <div class="fa-friend-name">${escapeHtml(ch.challengerNickname || 'Friend')} <span class="fa-friend-rank">[${escapeHtml(ch.challengerRank || '1 Grade')}]</span> challenged you</div>
         <div class="fa-friend-sub">Stake ★ ${formatNumber(ch.stake || 0)}</div>
       </div>
       <div class="fa-friend-sub">Incoming duel</div>
