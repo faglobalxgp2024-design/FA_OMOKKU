@@ -1,4 +1,4 @@
-function ordinalSuffix(n) {
+ function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
     if (mod100 >= 11 && mod100 <= 13) return 'th';
@@ -1466,12 +1466,12 @@ function ordinalSuffix(n) {
         font-size:12px;
       }
       body.fa-mobile-fullscreen .fa-board-playerbar.enemy{
-        top:68px;
-        left:12px;
+        top:86px;
+        left:24px;
       }
       body.fa-mobile-fullscreen .fa-board-playerbar.self{
-        right:12px;
-        bottom:max(12px, env(safe-area-inset-bottom));
+        right:24px;
+        bottom:max(32px, env(safe-area-inset-bottom));
       }
       body.fa-mobile-fullscreen .fa-main {
         display: block;
