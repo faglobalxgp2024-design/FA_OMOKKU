@@ -2776,6 +2776,7 @@
     const seenKey = String(room.updatedAt || room.guestPingAt || Date.now());
     if (state.online.lastGuestReadySeenAt === seenKey) return;
     state.online.lastGuestReadySeenAt = seenKey;
+    playRoomEventChime('join');
     openConfirm({
       title: 'Start Match?',
       text: `${room.guestNickname || 'Guest'} is ready. Accept and start the match?`,
@@ -3576,7 +3577,14 @@
     if (ui.roomCodeView) ui.roomCodeView.textContent = (state.online.roomId || state.online.roomCode) ? `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' · ' + state.online.roomCode : ' · Open'} · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}` : 'Room: ——';
     if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? (state.online.role === 'host' ? (state.online.guestReady ? `Guest ready · accept to start · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.` : `Waiting for your friend to press Ready · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.`) : (state.online.guestReady ? `Ready locked · waiting for host start · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.` : `Press Ready to enter the duel · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.`)) : state.online.status === 'waiting' ? `Waiting for friend to join · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.` : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}` : state.online.status === 'countdown' ? `Starting now... · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}` : ((state.online.panelMode || 'none') === 'join' ? 'Choose an open room to join.' : (state.online.panelMode === 'create' ? 'Enter a room title, optional code, and star stake.' : 'Choose Create Room or Join Room.'))) : 'Create or join a room.';
     const surrenderBtn = ui.root.querySelector('#fa-surrender-btn');
-    if (surrenderBtn) surrenderBtn.classList.toggle('hidden', !(isOnlineMode() && state.phase === 'playing' && state.started && !state.gameOver));
+    const newGameBtn = ui.root.querySelector('#fa-newgame-btn');
+    const pauseBtn = ui.root.querySelector('#fa-pause-btn');
+    const resetCareerBtn = ui.root.querySelector('#fa-reset-score-btn');
+    const onlinePlayingOnlySurrender = !!(isOnlineMode() && state.phase === 'playing' && state.started && !state.gameOver);
+    if (surrenderBtn) surrenderBtn.classList.toggle('hidden', !onlinePlayingOnlySurrender);
+    if (newGameBtn) newGameBtn.classList.toggle('hidden', onlinePlayingOnlySurrender);
+    if (pauseBtn) pauseBtn.classList.toggle('hidden', onlinePlayingOnlySurrender);
+    if (resetCareerBtn) resetCareerBtn.classList.toggle('hidden', onlinePlayingOnlySurrender);
     renderOnlinePresence();
     updateFriendRoomPanelVisibility();
     ui.connectionNote.textContent = isOnlineMode() ? ((state.online.roomId || state.online.roomCode) ? `Online room ${state.online.roomTitle || (state.online.roomCode || 'Open')}` : 'Firebase online friendly ready') : (state.remoteAdapter.mode === 'local-ready' ? 'Local ladder mode · Firebase ready' : 'Firebase connected');
@@ -4601,13 +4609,3 @@
     boot();
   }
 })();
-
-
-
-/* === FORCE ONLY SURRENDER BUTTON DURING PLAY === */
-const style = document.createElement('style');
-style.innerHTML = `
-.playing .btn:not(.surrender-btn) { display:none !important; }
-`;
-document.head.appendChild(style);
-/* ============================================== */
