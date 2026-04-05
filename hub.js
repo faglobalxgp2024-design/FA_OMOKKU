@@ -2092,7 +2092,13 @@ function ordinalSuffix(n) {
     if (ui.openRoomsPanel) {
       ui.openRoomsPanel.dataset.open = '';
       ui.openRoomsPanel.classList.add('hidden');
-    }
+    // Hide join-room buttons only in Friends tab
+    try {
+      const joinBtns = document.querySelectorAll('[data-action="open-rooms"], .btn-join-room, #btnJoinRoom, #joinRoomBtn');
+      joinBtns.forEach(el => { el.style.display = 'none'; });
+    } catch(e) {}
+
+  }
     if (ui.openRoomsList) ui.openRoomsList.innerHTML = '';
     setRoomListLocked(false);
     syncUI();
