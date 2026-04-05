@@ -1,4 +1,4 @@
-  function ordinalSuffix(n) {
+function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
     if (mod100 >= 11 && mod100 <= 13) return 'th';
@@ -577,7 +577,15 @@
               </div>
 
               <div class="fa-board-wrap" id="fa-board-wrap">
+                <div class="fa-board-playerbar enemy" id="fa-enemy-info">
+                  <div class="fa-board-playerbar-name" id="fa-enemy-name">Opponent</div>
+                  <div class="fa-board-playerbar-stars" id="fa-enemy-stars">★ 0</div>
+                </div>
                 <canvas id="fa-board" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}"></canvas>
+                <div class="fa-board-playerbar self" id="fa-self-info">
+                  <div class="fa-board-playerbar-name" id="fa-self-name">You</div>
+                  <div class="fa-board-playerbar-stars" id="fa-self-stars">★ 0</div>
+                </div>
 
                 <div class="fa-countdown hidden" id="fa-countdown-overlay">
                   <div class="fa-countdown-num" id="fa-countdown-text">3</div>
@@ -642,13 +650,10 @@
                       </div>
                       <div class="fa-friends-panel hidden" id="fa-friends-panel">
                         <div class="fa-open-rooms-head">
-                          <div class="fa-open-rooms-title">Friends Online</div>
+                          <div class="fa-open-rooms-title">Online</div>
                           <button class="fa-btn ghost tiny" id="fa-refresh-friends-btn">Refresh</button>
                         </div>
-                        <div class="fa-room-actions" style="grid-template-columns:minmax(0,1fr) auto;">
-                          <input id="fa-add-friend-input" maxlength="18" autocomplete="off" spellcheck="false" placeholder="Add friend by nickname" />
-                          <button class="fa-btn" id="fa-add-friend-btn">Add Friend</button>
-                        </div>
+                        <div class="hidden" id="fa-online-controls"></div>
                         <div class="fa-open-rooms-list" id="fa-friends-list"></div>
                       </div>
 
@@ -714,6 +719,7 @@
                 </div>
 
                 <div class="fa-floating-game-actions hidden" id="fa-floating-game-actions">
+                  <button class="fa-btn danger hidden" id="fa-floating-surrender">Surrender</button>
                   <button class="fa-btn ghost" id="fa-floating-fullscreen">Fullscreen</button>
                   <button class="fa-btn ghost hidden" id="fa-floating-exit-fullscreen">Exit Fullscreen</button>
                 </div>
@@ -1107,6 +1113,32 @@
         background: #deb978;
         touch-action: manipulation;
       }
+      .fa-board-playerbar{
+        position:absolute; z-index:4;
+        display:flex; flex-direction:column; gap:3px;
+        width:auto; min-width:0; max-width:min(26vw, 190px);
+        padding:8px 10px; border-radius:14px;
+        background:
+          linear-gradient(180deg, rgba(74,44,21,.82), rgba(34,20,10,.78)),
+          radial-gradient(circle at top, rgba(255,224,163,.10), transparent 55%);
+        border:1px solid rgba(255,227,170,.14);
+        box-shadow:0 10px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.07);
+        backdrop-filter: blur(10px);
+        pointer-events:none;
+      }
+      .fa-board-playerbar.enemy{ left:14px; top:14px; align-items:flex-start; }
+      .fa-board-playerbar.self{ right:14px; bottom:14px; text-align:right; align-items:flex-end; }
+      .fa-board-playerbar.hidden{ display:none !important; }
+      .fa-board-playerbar-name{
+        font-size:11px; line-height:1.15; font-weight:900; color:#fff3dd; letter-spacing:.01em;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      }
+      .fa-board-playerbar-stars{
+        font-size:10px; line-height:1.1; font-weight:800; color:#ffd98a;
+      }
+      #fa-floating-surrender{
+        position:absolute; left:0; top:0;
+      }
 
       .fa-stage, .fa-overlay {
         position: absolute; inset: 0; display: grid; place-items: center;
@@ -1406,6 +1438,41 @@
         font-size: 16px;
         box-shadow: 0 10px 28px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.08);
       }
+      body.fa-mobile-fullscreen #fa-floating-game-actions{
+        display:flex !important;
+        right:12px;
+        left:12px;
+        top:max(12px, env(safe-area-inset-top));
+        flex-direction:row;
+        justify-content:space-between;
+        align-items:flex-start;
+      }
+      body.fa-mobile-fullscreen #fa-floating-surrender{
+        display:inline-flex !important;
+        position:relative;
+        left:auto; top:auto;
+        min-width:132px;
+      }
+      body.fa-mobile-fullscreen .fa-board-playerbar{
+        padding:10px 12px;
+        border-radius:16px;
+        max-width:min(42vw, 220px);
+        box-shadow:0 14px 28px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);
+      }
+      body.fa-mobile-fullscreen .fa-board-playerbar-name{
+        font-size:13px;
+      }
+      body.fa-mobile-fullscreen .fa-board-playerbar-stars{
+        font-size:12px;
+      }
+      body.fa-mobile-fullscreen .fa-board-playerbar.enemy{
+        top:68px;
+        left:12px;
+      }
+      body.fa-mobile-fullscreen .fa-board-playerbar.self{
+        right:12px;
+        bottom:max(12px, env(safe-area-inset-bottom));
+      }
       body.fa-mobile-fullscreen .fa-main {
         display: block;
         max-width: 100%;
@@ -1510,6 +1577,12 @@
         }
         .fa-open-rooms-list.single-room .fa-room-item { min-width: 0 !important; width: 100% !important; max-width: 100% !important; flex: none !important; }
         .fa-board-wrap { min-height: 72vh; }
+        .fa-board-playerbar{
+          max-width:min(38vw, 180px);
+          padding:7px 9px;
+        }
+        .fa-board-playerbar-name{ font-size:10px; }
+        .fa-board-playerbar-stars{ font-size:10px; }
       }
     `;
     document.head.appendChild(style);
@@ -1582,6 +1655,12 @@
     ui.placeBtn = root.querySelector('#fa-place-btn');
     ui.countdownOverlay = root.querySelector('#fa-countdown-overlay');
     ui.countdownText = root.querySelector('#fa-countdown-text');
+    ui.enemyInfo = root.querySelector('#fa-enemy-info');
+    ui.enemyName = root.querySelector('#fa-enemy-name');
+    ui.enemyStars = root.querySelector('#fa-enemy-stars');
+    ui.selfInfo = root.querySelector('#fa-self-info');
+    ui.selfName = root.querySelector('#fa-self-name');
+    ui.selfStars = root.querySelector('#fa-self-stars');
     ui.opponentName = root.querySelector('#fa-opponent-name');
     ui.modeLine = root.querySelector('#fa-mode-line');
     ui.friendPanel = root.querySelector('#fa-friend-panel');
@@ -1644,6 +1723,8 @@
     root.querySelector('#fa-mobile-fullscreen-btn').addEventListener('click', () => { requestMobileFullscreen(true); startGameFromLobby(); });
     root.querySelector('#fa-floating-fullscreen').addEventListener('click', () => requestMobileFullscreen(true));
     root.querySelector('#fa-floating-exit-fullscreen').addEventListener('click', exitMobileFullscreen);
+    const floatingSurrenderBtn = root.querySelector('#fa-floating-surrender');
+    if (floatingSurrenderBtn) floatingSurrenderBtn.addEventListener('click', surrenderOnlineMatch);
     ui.placeBtn.addEventListener('click', confirmPendingMove);
     ui.modeAi.addEventListener('click', () => switchMatchMode('ai'));
     ui.modeFriend.addEventListener('click', () => switchMatchMode('friend'));
@@ -1950,23 +2031,19 @@
   }
 
   async function loadFriendsFromRemote() {
-    if (!window.firebase || !firebase.database || !state.profile?.id) return [];
+    if (!window.firebase || !firebase.database) return [];
     try {
-      const meSnap = await firebase.database().ref(getProfilePath(state.profile.id)).once('value');
-      const me = meSnap.val() || {};
-      const friends = me.friends || state.profile.friends || {};
-      state.profile.friends = friends;
-      const ids = Object.keys(friends || {}).filter(Boolean);
-      if (!ids.length) {
-        state.friends.list = [];
-        return [];
-      }
-      const snaps = await Promise.all(ids.map(id => firebase.database().ref(getProfilePath(id)).once('value')));
-      const list = snaps.map(s => s.val()).filter(Boolean).sort((a,b) => Number(b.lastSeenAt||0)-Number(a.lastSeenAt||0));
+      const snap = await firebase.database().ref('omokProfiles').once('value');
+      const raw = snap.val() || {};
+      const list = Object.values(raw)
+        .filter(Boolean)
+        .filter(v => v.id && v.id !== state.profile?.id)
+        .filter(v => isUserOnline(v))
+        .sort((a,b) => Number(b.lastSeenAt||0)-Number(a.lastSeenAt||0));
       state.friends.list = list;
       return list;
     } catch (e) {
-      console.log('load friends ignored:', e);
+      console.log('load online list ignored:', e);
       return [];
     }
   }
@@ -1989,7 +2066,7 @@
     if (!ui.friendsList) return;
     const list = Array.isArray(state.friends.list) ? state.friends.list : [];
     if (!list.length) {
-      ui.friendsList.innerHTML = '<div class="fa-room-empty">No friends added yet. Add a nickname above.</div>';
+      ui.friendsList.innerHTML = '<div class="fa-room-empty">No users are currently online.</div>';
       return;
     }
     ui.friendsList.innerHTML = list.map(friend => {
@@ -1998,7 +2075,7 @@
       return `<div class="fa-friend-row">
         <div class="fa-friend-row-meta">
           <div class="fa-friend-name">${escapeHtml(friend.nickname || 'Friend')}</div>
-          <div class="fa-friend-sub">${online ? 'Online now' : 'Offline'} · ${escapeHtml(friend.rank || 'Rank')} · ★ ${formatNumber(friend.stars || 0)}</div>
+          <div class="fa-friend-sub">${online ? 'Online now' : 'Offline'} · ★ ${formatNumber(friend.stars || 0)}</div>
         </div>
         <input class="fa-friend-stake" data-friend-stake="${escapeHtml(friend.id || '')}" type="number" min="1" step="1" value="${stake}" placeholder="Stake" />
         <button class="fa-btn" data-challenge-friend="${escapeHtml(friend.id || '')}" ${online ? '' : 'disabled'}>${online ? 'Challenge' : 'Offline'}</button>
@@ -2013,35 +2090,7 @@
   }
 
   async function addFriendByNickname() {
-    const nickname = String(ui.addFriendInput?.value || '').trim();
-    if (!nickname) {
-      if (ui.roomStatus) ui.roomStatus.textContent = 'Enter your friend nickname first.';
-      return;
-    }
-    if (!window.firebase || !firebase.database || !state.profile?.id) return;
-    try {
-      const snap = await firebase.database().ref('omokProfiles').once('value');
-      const raw = snap.val() || {};
-      const foundEntry = Object.values(raw).find(v => String(v?.nickname || '').trim().toLowerCase() === nickname.toLowerCase());
-      if (!foundEntry || !foundEntry.id) {
-        if (ui.roomStatus) ui.roomStatus.textContent = 'Friend nickname not found.';
-        return;
-      }
-      if (foundEntry.id === state.profile.id) {
-        if (ui.roomStatus) ui.roomStatus.textContent = 'You cannot add yourself.';
-        return;
-      }
-      state.profile.friends = state.profile.friends || {};
-      state.profile.friends[foundEntry.id] = true;
-      await firebase.database().ref(getProfilePath(state.profile.id) + '/friends/' + foundEntry.id).set(true);
-      await firebase.database().ref(getProfilePath(foundEntry.id) + '/friends/' + state.profile.id).set(true);
-      saveState();
-      ui.addFriendInput.value = '';
-      if (ui.roomStatus) ui.roomStatus.textContent = `${foundEntry.nickname} added to friends.`;
-      await refreshFriendsPanel();
-    } catch (e) {
-      console.log('add friend ignored:', e);
-    }
+    return refreshFriendsPanel();
   }
 
   async function sendFriendChallenge(friendId, stake) {
@@ -2827,14 +2876,27 @@
       const leavingHost = room.hostId === state.profile?.id;
       const leavingGuest = room.guestId === state.profile?.id;
       if (leavingHost) {
-        updates.hostId = null;
-        updates.hostNickname = null;
-        updates.hostReady = false;
+        if (room.guestId) {
+          updates.hostId = room.guestId;
+          updates.hostNickname = room.guestNickname || 'Host';
+          updates.hostReady = false;
+          updates.hostStars = Number(room.guestStars || 0);
+          updates.guestId = null;
+          updates.guestNickname = null;
+          updates.guestReady = false;
+          updates.guestStars = 0;
+        } else {
+          updates.hostId = null;
+          updates.hostNickname = null;
+          updates.hostReady = false;
+          updates.hostStars = 0;
+        }
       }
       if (leavingGuest) {
         updates.guestId = null;
         updates.guestNickname = null;
         updates.guestReady = false;
+        updates.guestStars = 0;
       }
       const next = { ...room, ...updates };
       if (!next.hostId && !next.guestId) await ref.remove();
@@ -2902,6 +2964,7 @@
     state.online.hostName = room.hostNickname || '';
     state.online.guestName = room.guestNickname || '';
     state.online.starWager = normalizeStarWager(room.starWager, STAR_WAGER_OPTIONS[0]);
+    state.online.opponentStars = isHost ? Number(room.guestStars || 0) : isGuest ? Number(room.hostStars || 0) : 0;
     const hostAlive = isRoomRoleAlive(room, 'host');
     const guestAlive = isRoomRoleAlive(room, 'guest');
     if (!hostAlive && state.online.role === 'guest') {
@@ -2912,6 +2975,13 @@
       state.online.status = 'waiting';
       state.online.guestReady = false;
       state.online.opponentName = 'Waiting...';
+      state.online.opponentStars = 0;
+    }
+    if (room.hostId && me && room.hostId === me && state.online.role !== 'host') {
+      state.online.role = 'host';
+      state.online.mySide = HUMAN;
+      state.online.opponentName = room.guestNickname || 'Waiting...';
+      state.online.opponentStars = Number(room.guestStars || 0);
     }
 
     if (state.online.role === 'host' && room.guestId && room.guestId !== prevGuestId) {
@@ -3557,6 +3627,13 @@
     ui.bestTier.textContent = String(state.bestStreak);
     const walletStars = getCurrentStars();
     const activeStake = isOnlineMode() ? (state.online.starWager || STAR_WAGER_OPTIONS[0]) : getSelectedStarWager();
+    const opponentStars = isOnlineMode() ? Number(state.online.opponentStars || 0) : 0;
+    if (ui.enemyName) ui.enemyName.textContent = isOnlineMode() ? (state.online.opponentName || 'Opponent') : 'FA AI';
+    if (ui.enemyStars) ui.enemyStars.textContent = isOnlineMode() ? `★ ${formatNumber(opponentStars)}` : '';
+    if (ui.selfName) ui.selfName.textContent = state.profile ? state.profile.nickname : 'Guest';
+    if (ui.selfStars) ui.selfStars.textContent = `★ ${formatNumber(walletStars)}`;
+    if (ui.enemyInfo) ui.enemyInfo.classList.toggle('hidden', !isOnlineMode());
+    if (ui.selfInfo) ui.selfInfo.classList.toggle('hidden', !isOnlineMode());
     if (ui.currentStars) ui.currentStars.textContent = formatNumber(walletStars);
     if (ui.currentStakeNote) ui.currentStakeNote.textContent = `Owned Stars · ★ ${formatNumber(walletStars)}`;
     if (ui.roomStakePills && ui.roomStakePills.length) {
@@ -3577,11 +3654,13 @@
     if (ui.roomCodeView) ui.roomCodeView.textContent = (state.online.roomId || state.online.roomCode) ? `${state.online.roomTitle || 'Room'}${state.online.roomCode ? ' · ' + state.online.roomCode : ' · Open'} · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}` : 'Room: ——';
     if (ui.roomStatus) ui.roomStatus.textContent = isOnlineMode() ? (state.online.status === 'ready' ? (state.online.role === 'host' ? (state.online.guestReady ? `Guest ready · accept to start · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.` : `Waiting for your friend to press Ready · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.`) : (state.online.guestReady ? `Ready locked · waiting for host start · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.` : `Press Ready to enter the duel · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.`)) : state.online.status === 'waiting' ? `Waiting for friend to join · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}.` : state.online.status === 'playing' ? `${state.turn === getMySide() ? 'Your turn' : 'Friend turn'} · ${Math.max(0, state.turnSecondsLeft)}s · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}` : state.online.status === 'countdown' ? `Starting now... · ★ ${formatNumber(state.online.starWager || STAR_WAGER_OPTIONS[0])}` : ((state.online.panelMode || 'none') === 'join' ? 'Choose an open room to join.' : (state.online.panelMode === 'create' ? 'Enter a room title, optional code, and star stake.' : 'Choose Create Room or Join Room.'))) : 'Create or join a room.';
     const surrenderBtn = ui.root.querySelector('#fa-surrender-btn');
+    const floatingSurrenderBtn = ui.root.querySelector('#fa-floating-surrender');
     const newGameBtn = ui.root.querySelector('#fa-newgame-btn');
     const pauseBtn = ui.root.querySelector('#fa-pause-btn');
     const resetCareerBtn = ui.root.querySelector('#fa-reset-score-btn');
     const onlinePlayingOnlySurrender = !!(isOnlineMode() && state.phase === 'playing' && state.started && !state.gameOver);
     if (surrenderBtn) surrenderBtn.classList.toggle('hidden', !onlinePlayingOnlySurrender);
+    if (floatingSurrenderBtn) floatingSurrenderBtn.classList.toggle('hidden', !onlinePlayingOnlySurrender);
     if (newGameBtn) newGameBtn.classList.toggle('hidden', onlinePlayingOnlySurrender);
     if (pauseBtn) pauseBtn.classList.toggle('hidden', onlinePlayingOnlySurrender);
     if (resetCareerBtn) resetCareerBtn.classList.toggle('hidden', onlinePlayingOnlySurrender);
