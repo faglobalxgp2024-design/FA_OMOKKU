@@ -1774,6 +1774,28 @@ function ordinalSuffix(n) {
     ui.confirmModal.addEventListener('click', e => {
       if (e.target === ui.confirmModal) closeConfirm();
     });
+
+    root.addEventListener('click', e => {
+      const btn = e.target && e.target.closest ? e.target.closest('button, .fa-btn, .fa-chip, .fa-stake-pill') : null;
+      if (!btn) return;
+      if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+      try {
+        initAudio();
+        playUiTap();
+      } catch (err) {}
+    }, true);
+
+    root.addEventListener('keydown', e => {
+      if (!(e.key === 'Enter' || e.key === ' ' || e.code === 'Space')) return;
+      const btn = e.target && e.target.closest ? e.target.closest('button, .fa-btn, .fa-chip, .fa-stake-pill') : null;
+      if (!btn) return;
+      if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+      try {
+        initAudio();
+        playUiTap();
+      } catch (err) {}
+    }, true);
+
     window.addEventListener('keydown', onGlobalKey);
     window.addEventListener('resize', () => {
       updateMobileMode();
