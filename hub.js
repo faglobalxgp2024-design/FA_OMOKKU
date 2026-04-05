@@ -2092,15 +2092,10 @@ function ordinalSuffix(n) {
     if (ui.openRoomsPanel) {
       ui.openRoomsPanel.dataset.open = '';
       ui.openRoomsPanel.classList.add('hidden');
-      ui.openRoomsPanel.style.display = 'none';
     }
     if (ui.openRoomsList) ui.openRoomsList.innerHTML = '';
     setRoomListLocked(false);
     syncUI();
-    if (ui.openRoomsPanel) {
-      ui.openRoomsPanel.classList.add('hidden');
-      ui.openRoomsPanel.style.display = 'none';
-    }
     refreshFriendsPanel();
   }
 
