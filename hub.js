@@ -708,8 +708,7 @@
                     <div class="fa-overlay-actions">
                       <button class="fa-btn primary hidden" id="fa-overlay-confirm-btn">Confirm</button>
                       <button class="fa-btn primary" id="fa-rematch-btn">Play Again</button>
-                      <button class="fa-btn" id="fa-review-btn">Review</button>
-                      <button class="fa-btn ghost" id="fa-overlay-lobby-btn">Lobby</button>
+                      <button class="fa-btn ghost" id="fa-overlay-lobby-btn">Leave Room</button>
                     </div>
                   </div>
                 </div>
@@ -1626,13 +1625,16 @@
     root.querySelector('#fa-newgame-btn').addEventListener('click', handleNewMatch);
     ui.overlayConfirmBtn = root.querySelector('#fa-overlay-confirm-btn');
     root.querySelector('#fa-rematch-btn').addEventListener('click', () => { closeOverlay(); prepareMatch(); });
-    root.querySelector('#fa-overlay-lobby-btn').addEventListener('click', backToLobby);
+    root.querySelector('#fa-overlay-lobby-btn').addEventListener('click', async () => {
+      closeOverlay();
+      if (isOnlineMode()) await leaveOnlineRoom();
+      else backToLobby();
+    });
     if (ui.overlayConfirmBtn) ui.overlayConfirmBtn.addEventListener('click', async () => {
       closeOverlay();
       if (isOnlineMode()) await leaveOnlineRoom();
       backToLobby();
     });
-    root.querySelector('#fa-review-btn').addEventListener('click', startReview);
     root.querySelector('#fa-reset-score-btn').addEventListener('click', resetCareer);
     root.querySelector('#fa-pause-btn').addEventListener('click', togglePause);
     root.querySelector('#fa-pause-top-btn').addEventListener('click', togglePause);
@@ -2680,10 +2682,8 @@
     }
     if (ui.overlayConfirmBtn) ui.overlayConfirmBtn.classList.add('hidden');
     const rematchBtn = document.getElementById('fa-rematch-btn');
-    const reviewBtn = document.getElementById('fa-review-btn');
     const lobbyBtn = document.getElementById('fa-overlay-lobby-btn');
     if (rematchBtn) rematchBtn.classList.remove('hidden');
-    if (reviewBtn) reviewBtn.classList.remove('hidden');
     if (lobbyBtn) lobbyBtn.classList.remove('hidden');
   }
 
@@ -2699,11 +2699,9 @@
       ui.overlayStars.classList.toggle('negative', starsTone === 'negative');
     }
     const rematchBtn = document.getElementById('fa-rematch-btn');
-    const reviewBtn = document.getElementById('fa-review-btn');
     const lobbyBtn = document.getElementById('fa-overlay-lobby-btn');
     if (ui.overlayConfirmBtn) ui.overlayConfirmBtn.classList.toggle('hidden', !confirmOnly);
     if (rematchBtn) rematchBtn.classList.toggle('hidden', !!confirmOnly);
-    if (reviewBtn) reviewBtn.classList.toggle('hidden', !!confirmOnly);
     if (lobbyBtn) lobbyBtn.classList.toggle('hidden', !!confirmOnly);
     ui.overlay.classList.remove('hidden');
   }
@@ -4603,3 +4601,13 @@
     boot();
   }
 })();
+
+
+
+/* === FORCE ONLY SURRENDER BUTTON DURING PLAY === */
+const style = document.createElement('style');
+style.innerHTML = `
+.playing .btn:not(.surrender-btn) { display:none !important; }
+`;
+document.head.appendChild(style);
+/* ============================================== */
