@@ -2089,14 +2089,9 @@ function ordinalSuffix(n) {
   function openFriendsPanel() {
     if (!isOnlineMode()) switchMatchMode('friend');
     state.online.panelMode = 'friends';
-    if (ui.roomActions) {
-      ui.roomActions.classList.add('hidden');
-      ui.roomActions.style.display = 'none';
-    }
     if (ui.openRoomsPanel) {
       ui.openRoomsPanel.dataset.open = '';
       ui.openRoomsPanel.classList.add('hidden');
-      ui.openRoomsPanel.style.display = 'none';
     }
     if (ui.openRoomsList) ui.openRoomsList.innerHTML = '';
     setRoomListLocked(false);
