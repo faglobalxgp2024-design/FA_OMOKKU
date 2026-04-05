@@ -1,4 +1,4 @@
- function ordinalSuffix(n) {
+function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
     if (mod100 >= 11 && mod100 <= 13) return 'th';
@@ -975,7 +975,15 @@
       }
       
       .fa-friends-panel { margin-top:12px; border:1px solid rgba(255,255,255,.10); background: rgba(22,10,2,.22); border-radius:18px; padding:12px; overflow:hidden; }
-      .fa-friend-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(130px,170px) auto; gap:10px; align-items:center; padding:14px; border-radius:20px; min-width:280px; flex:1 1 310px; background: linear-gradient(180deg, rgba(255,247,231,.11), rgba(255,247,231,.05)), linear-gradient(135deg, rgba(118,72,31,.42), rgba(72,41,20,.34) 55%, rgba(48,28,12,.42)); border:1px solid rgba(255,235,202,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 34px rgba(28,13,3,.18); }
+      #fa-friends-list{
+        display:grid;
+        grid-template-columns:minmax(0,1fr);
+        width:100%;
+        max-width:100%;
+        overflow-x:hidden;
+        justify-items:stretch;
+      }
+      .fa-friend-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(110px,150px) auto; gap:10px; align-items:center; padding:14px; border-radius:20px; min-width:0; width:100%; max-width:100%; flex:none; background: linear-gradient(180deg, rgba(255,247,231,.11), rgba(255,247,231,.05)), linear-gradient(135deg, rgba(118,72,31,.42), rgba(72,41,20,.34) 55%, rgba(48,28,12,.42)); border:1px solid rgba(255,235,202,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 34px rgba(28,13,3,.18); }
       .fa-friend-row-meta { min-width:0; }
       .fa-friend-name { font-weight:900; color:#fff4df; font-size:15px; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
       .fa-friend-sub { color: var(--muted); font-size:12px; margin-top:3px; }
