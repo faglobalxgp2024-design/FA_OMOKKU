@@ -182,7 +182,8 @@ function ordinalSuffix(n) {
       profileHandle: null,
       challengeHandle: null,
       lastLoadedAt: 0
-    }
+    },
+    nextStarter: HUMAN
   };
 
   const ui = {};
@@ -2551,6 +2552,7 @@ function ordinalSuffix(n) {
       await startOnlineRoomMatch();
       return;
     }
+    state.nextStarter = HUMAN;
     state.started = true;
     state.phase = 'countdown';
     state.paused = false;
@@ -2679,7 +2681,7 @@ function ordinalSuffix(n) {
 
   function prepareMatch() {
     state.board = createBoard();
-    state.turn = getMySide();
+    state.turn = state.nextStarter || HUMAN;
     stopTurnTimer();
     state.gameOver = false;
     state.winner = 0;
@@ -2887,7 +2889,8 @@ function ordinalSuffix(n) {
           winner: 0,
           winningLine: [],
           board: createBoard(),
-          turn: HUMAN,
+          turn: state.nextStarter || HUMAN,
+          nextStarter: state.nextStarter || HUMAN,
           turnExpiresAt: 0,
           moveCount: 0,
           lastMove: null,
@@ -3003,6 +3006,7 @@ function ordinalSuffix(n) {
     state.online.status = room.status || (room.guestId ? 'ready' : 'waiting');
     state.online.hostReady = !!room.hostReady;
     state.online.guestReady = !!room.guestReady;
+    state.nextStarter = Number(room.nextStarter || HUMAN) || HUMAN;
     state.online.turnExpiresAt = Number(room.turnExpiresAt || 0);
     state.online.hostId = room.hostId || '';
     state.online.guestId = room.guestId || '';
@@ -3270,6 +3274,7 @@ function ordinalSuffix(n) {
       guestReady: false,
       board: createBoard(),
       turn: HUMAN,
+      nextStarter: HUMAN,
       turnExpiresAt: 0,
       winner: 0,
       winningLine: [],
@@ -3495,7 +3500,8 @@ function ordinalSuffix(n) {
     await firebase.database().ref(getRoomPath(state.online.roomId || state.online.roomCode)).update({
       status: 'playing',
       board: createBoard(),
-      turn: HUMAN,
+      turn: state.nextStarter || HUMAN,
+      nextStarter: state.nextStarter || HUMAN,
       turnExpiresAt: Date.now() + TURN_LIMIT_MS,
       winner: 0,
       winningLine: [],
@@ -3513,6 +3519,7 @@ function ordinalSuffix(n) {
       status: state.gameOver ? 'finished' : 'playing',
       board: state.board,
       turn: state.turn,
+      nextStarter: state.nextStarter || HUMAN,
       turnExpiresAt: state.gameOver ? 0 : Date.now() + TURN_LIMIT_MS,
       winner: state.winner || 0,
       winningLine: state.winningLine || [],
@@ -4077,6 +4084,7 @@ function ordinalSuffix(n) {
       );
     }
     if (winner === mySide) {
+      state.nextStarter = oppSide;
       if (rankedAi) {
         state.totalWins += 1;
         applyRankedResult(true);
@@ -4091,6 +4099,7 @@ function ordinalSuffix(n) {
       triggerHaptic('win');
       fanfare(true);
     } else if (winner === oppSide) {
+      state.nextStarter = mySide;
       if (rankedAi) {
         state.totalLosses += 1;
         applyRankedResult(false);
@@ -4104,7 +4113,10 @@ function ordinalSuffix(n) {
       triggerHaptic('loss');
       fanfare(false);
     } else if (!rankedAi && isOnlineMode()) {
+      state.nextStarter = HUMAN;
       text = `Draw match. No stars changed.`;
+    } else {
+      state.nextStarter = HUMAN;
     }
     const weeklySeason = ensureWeeklySeason();
     if (rankedAi && state.profile) {
@@ -4153,7 +4165,8 @@ function ordinalSuffix(n) {
               winner: winner || 0,
               winningLine: [],
               board: createBoard(),
-              turn: HUMAN,
+              turn: state.nextStarter || HUMAN,
+              nextStarter: state.nextStarter || HUMAN,
               turnExpiresAt: 0,
               moveCount: 0,
               lastMove: null,
