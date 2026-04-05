@@ -2106,6 +2106,7 @@ function ordinalSuffix(n) {
     const wager = normalizeStarWager(stake, STAR_WAGER_OPTIONS[0]);
     if (!canAffordStars(wager)) {
       if (ui.roomStatus) ui.roomStatus.textContent = `Not enough stars. Need ★ ${formatNumber(wager)}.`;
+      openNoticePopup('Not Enough Stars', `You need ★ ${formatNumber(wager)} to start this challenge.`, 'Confirm');
       return;
     }
     try {
@@ -3209,6 +3210,7 @@ function ordinalSuffix(n) {
     const starWager = normalizeStarWager(options?.starWager ?? getSelectedStarWager(), STAR_WAGER_OPTIONS[0]);
     if (!canAffordStars(starWager)) {
       if (ui.roomStatus) ui.roomStatus.textContent = `Not enough stars. You need ★ ${formatNumber(starWager)}.`;
+      openNoticePopup('Not Enough Stars', `You need ★ ${formatNumber(starWager)} to create this room.`, 'Confirm');
       syncUI();
       return;
     }
@@ -3326,6 +3328,7 @@ function ordinalSuffix(n) {
     const roomWager = normalizeStarWager(room.starWager, STAR_WAGER_OPTIONS[0]);
     if (!canAffordStars(roomWager)) {
       ui.roomStatus.textContent = `Not enough stars for this room. Need ★ ${formatNumber(roomWager)}.`;
+      openNoticePopup('Not Enough Stars', `You need ★ ${formatNumber(roomWager)} to join this room.`, 'Confirm');
       return;
     }
     room.guestId = room.guestId || state.profile.id;
@@ -3385,6 +3388,7 @@ function ordinalSuffix(n) {
     const roomWager = normalizeStarWager(room.starWager, STAR_WAGER_OPTIONS[0]);
     if (!canAffordStars(roomWager)) {
       ui.roomStatus.textContent = `Not enough stars for this room. Need ★ ${formatNumber(roomWager)}.`;
+      openNoticePopup('Not Enough Stars', `You need ★ ${formatNumber(roomWager)} to continue this match.`, 'Confirm');
       openStartScreen();
       syncUI();
       await leaveOnlineRoom();
@@ -3543,7 +3547,35 @@ function ordinalSuffix(n) {
     if (ui.confirmProgress) ui.confirmProgress.classList.add('hidden');
     if (ui.confirmProgressFill) ui.confirmProgressFill.style.width = '100%';
     const ok = ui.root.querySelector('#fa-confirm-ok');
+    const cancel = ui.root.querySelector('#fa-confirm-cancel');
     if (ok) ok.textContent = 'Confirm';
+    if (cancel) {
+      cancel.textContent = 'Cancel';
+      cancel.classList.remove('hidden');
+    }
+  }
+
+  function openNoticePopup(title, text, confirmLabel = 'Confirm') {
+    initAudio();
+    try { playRoomEventChime('join'); } catch (e) {}
+    ui.confirmTitle.textContent = title;
+    ui.confirmText.textContent = text;
+    ui.confirmModal.classList.remove('hidden');
+    const ok = ui.root.querySelector('#fa-confirm-ok');
+    const cancel = ui.root.querySelector('#fa-confirm-cancel');
+    if (ok) {
+      ok.textContent = confirmLabel;
+      ok.onclick = () => closeConfirm();
+    }
+    if (cancel) {
+      cancel.classList.add('hidden');
+      cancel.onclick = () => closeConfirm();
+    }
+    if (state.confirmTimer) clearInterval(state.confirmTimer);
+    state.confirmTimer = null;
+    state.confirmExpireAt = 0;
+    if (ui.confirmProgress) ui.confirmProgress.classList.add('hidden');
+    if (ui.confirmProgressFill) ui.confirmProgressFill.style.width = '100%';
   }
 
   function resetCareer() {
