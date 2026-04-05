@@ -2089,16 +2089,15 @@ function ordinalSuffix(n) {
   function openFriendsPanel() {
     if (!isOnlineMode()) switchMatchMode('friend');
     state.online.panelMode = 'friends';
+    if (ui.roomActions) {
+      ui.roomActions.classList.add('hidden');
+      ui.roomActions.style.display = 'none';
+    }
     if (ui.openRoomsPanel) {
       ui.openRoomsPanel.dataset.open = '';
       ui.openRoomsPanel.classList.add('hidden');
-    // Hide join-room buttons only in Friends tab
-    try {
-      const joinBtns = document.querySelectorAll('[data-action="open-rooms"], .btn-join-room, #btnJoinRoom, #joinRoomBtn');
-      joinBtns.forEach(el => { el.style.display = 'none'; });
-    } catch(e) {}
-
-  }
+      ui.openRoomsPanel.style.display = 'none';
+    }
     if (ui.openRoomsList) ui.openRoomsList.innerHTML = '';
     setRoomListLocked(false);
     syncUI();
