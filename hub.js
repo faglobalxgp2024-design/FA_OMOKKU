@@ -1,4 +1,4 @@
- function ordinalSuffix(n) {
+function ordinalSuffix(n) {
     const v = Math.abs(Number(n)) || 0;
     const mod100 = v % 100;
     if (mod100 >= 11 && mod100 <= 13) return 'th';
@@ -157,6 +157,7 @@
       role: '',
       mySide: HUMAN,
       opponentName: 'Friend',
+      opponentRank: '1 Grade',
       status: 'idle',
       unsubscribe: null,
       lastCountdownAt: 0,
@@ -2882,7 +2883,7 @@
     try {
       if (!(state.online.roomId || state.online.roomCode) || !window.firebase || !firebase.database) {
         stopOnlinePresence();
-        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0, panelMode: 'none', lastGuestReadySeenAt: 0, starWager: STAR_WAGER_OPTIONS[0] };
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', opponentRank: '1 Grade', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0, panelMode: 'none', lastGuestReadySeenAt: 0, starWager: STAR_WAGER_OPTIONS[0] };
         if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '';
         syncUI();
         return;
@@ -2941,7 +2942,7 @@
       console.log('leave room error ignored:', e);
     }
     stopOnlinePresence();
-        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0, panelMode: 'none', lastGuestReadySeenAt: 0, starWager: STAR_WAGER_OPTIONS[0] };
+        state.online = { roomId: '', roomCode: '', roomTitle: '', role: '', mySide: HUMAN, opponentName: 'Friend', opponentRank: '1 Grade', status: 'idle', unsubscribe: null, lastCountdownAt: 0, lastFinishedAt: 0, hostReady: false, guestReady: false, turnExpiresAt: 0, presenceHandle: null, hostId: '', guestId: '', hostName: '', guestName: '', lastGuestSeenId: '', lastRoomPulseAt: 0, panelMode: 'none', lastGuestReadySeenAt: 0, starWager: STAR_WAGER_OPTIONS[0] };
     if (ui.openRoomsPanel) { ui.openRoomsPanel.classList.add('hidden'); ui.openRoomsPanel.dataset.open = ''; }
     setRoomListLocked(false);
     syncUI();
@@ -3239,6 +3240,7 @@
       title: roomTitle,
       hostId: state.profile.id,
       hostNickname: state.profile.nickname,
+      hostRank: getCurrentRankFromState(),
       guestId: null,
       guestNickname: null,
       status: 'waiting',
@@ -3267,6 +3269,7 @@
     state.online.role = 'host';
     state.online.mySide = HUMAN;
     state.online.opponentName = 'Waiting...';
+    state.online.opponentRank = '1 Grade';
     state.online.status = 'waiting';
     state.online.hostId = state.profile.id;
     state.online.guestId = '';
@@ -3346,6 +3349,7 @@
     }
     room.guestId = room.guestId || state.profile.id;
     room.guestNickname = room.guestNickname || state.profile.nickname;
+    room.guestRank = room.guestRank || getCurrentRankFromState();
     room.hostReady = !!room.hostReady;
     room.guestReady = !!room.guestReady;
     room.status = room.hostId && room.guestId ? 'ready' : 'waiting';
@@ -3360,6 +3364,7 @@
     state.online.role = room.hostId === state.profile.id ? 'host' : 'guest';
     state.online.mySide = state.online.role === 'host' ? HUMAN : AI;
     state.online.opponentName = state.online.role === 'host' ? (room.guestNickname || 'Waiting...') : (room.hostNickname || 'Host');
+    state.online.opponentRank = state.online.role === 'host' ? (room.guestRank || '1 Grade') : (room.hostRank || '1 Grade');
     state.online.status = room.status;
     state.online.hostId = room.hostId || '';
     state.online.guestId = room.guestId || '';
@@ -3681,9 +3686,9 @@
     const walletStars = getCurrentStars();
     const activeStake = isOnlineMode() ? (state.online.starWager || STAR_WAGER_OPTIONS[0]) : getSelectedStarWager();
     const opponentStars = isOnlineMode() ? Number(state.online.opponentStars || 0) : 0;
-    if (ui.enemyName) ui.enemyName.textContent = isOnlineMode() ? (state.online.opponentName || 'Opponent') : 'FA AI';
+    if (ui.enemyName) ui.enemyName.textContent = isOnlineMode() ? `${state.online.opponentName || 'Opponent'} [${state.online.opponentRank || '1 Grade'}]` : 'FA AI';
     if (ui.enemyStars) ui.enemyStars.textContent = isOnlineMode() ? `★ ${formatNumber(opponentStars)}` : '';
-    if (ui.selfName) ui.selfName.textContent = state.profile ? state.profile.nickname : 'Guest';
+    if (ui.selfName) ui.selfName.textContent = `${state.profile ? state.profile.nickname : 'Guest'} [${getCurrentRankFromState()}]`;
     if (ui.selfStars) ui.selfStars.textContent = `★ ${formatNumber(walletStars)}`;
     if (ui.enemyInfo) ui.enemyInfo.classList.toggle('hidden', !isOnlineMode());
     if (ui.selfInfo) ui.selfInfo.classList.toggle('hidden', !isOnlineMode());
