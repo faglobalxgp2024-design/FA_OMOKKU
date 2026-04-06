@@ -2089,11 +2089,7 @@ function ordinalSuffix(n) {
   function openFriendsPanel() {
     if (!isOnlineMode()) switchMatchMode('friend');
     state.online.panelMode = 'friends';
-    if (ui.openRoomsPanel) {
-      ui.openRoomsPanel.dataset.open = '';
-      ui.openRoomsPanel.classList.add('hidden');
-    }
-    if (ui.openRoomsList) ui.openRoomsList.innerHTML = '';
+    if (ui.openRoomsPanel) ui.openRoomsPanel.dataset.open = '';
     setRoomListLocked(false);
     syncUI();
     refreshFriendsPanel();
