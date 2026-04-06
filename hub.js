@@ -2192,7 +2192,7 @@ function ordinalSuffix(n) {
       timeoutMs: Math.max(0, Number(challenge.expiresAt || 0) - Date.now())
     });
     const cancel = ui.root.querySelector('#fa-confirm-cancel');
-    if (cancel) cancel.textContent = 'Later';
+    if (cancel) cancel.textContent = 'Cancel';
   }
 
   async function subscribeFriendChallenges() {
