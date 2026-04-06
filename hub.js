@@ -184,7 +184,7 @@ function ordinalSuffix(n) {
       lastLoadedAt: 0,
       popupChallengeId: '',
       challengePopupOpen: false,
-      dismissedChallengeId: ''
+      dismissedChallengeId: localStorage.getItem('dismissedChallengeId') || ''
     },
     nextStarter: HUMAN
   };
@@ -2173,6 +2173,7 @@ function ordinalSuffix(n) {
     if (!challenge || !challenge.id) return;
     state.friends.popupChallengeId = challenge.id;
     state.friends.dismissedChallengeId = '';
+        localStorage.removeItem('dismissedChallengeId');
     state.friends.challengePopupOpen = true;
     initAudio();
     try { playRoomEventChime('join'); } catch (e) {}
@@ -2188,6 +2189,7 @@ function ordinalSuffix(n) {
         state.friends.challengePopupOpen = false;
         state.friends.popupChallengeId = '';
         state.friends.dismissedChallengeId = challenge.id;
+        localStorage.setItem('dismissedChallengeId', challenge.id);
       },
       timeoutMs: Math.max(0, Number(challenge.expiresAt || 0) - Date.now())
     });
@@ -2223,6 +2225,7 @@ function ordinalSuffix(n) {
         }
         if (dismissedId && !dismissedStillExists) {
           state.friends.dismissedChallengeId = '';
+        localStorage.removeItem('dismissedChallengeId');
         }
         state.friends.incoming = pending;
         renderIncomingChallenges();
@@ -2278,6 +2281,7 @@ function ordinalSuffix(n) {
       await challengeRef.update({ status: 'accepted', acceptedAt: Date.now() });
       state.friends.popupChallengeId = '';
       state.friends.dismissedChallengeId = '';
+        localStorage.removeItem('dismissedChallengeId');
       state.friends.challengePopupOpen = false;
       switchMatchMode('friend');
       state.online.starWager = wager;
