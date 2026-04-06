@@ -184,7 +184,7 @@ function ordinalSuffix(n) {
       lastLoadedAt: 0,
       popupChallengeId: '',
       challengePopupOpen: false,
-      dismissedChallengeId: ''
+      dismissedChallengeId: localStorage.getItem('fa_omok_dismissed_challenge_id') || ''
     },
     nextStarter: HUMAN
   };
@@ -2172,7 +2172,6 @@ function ordinalSuffix(n) {
   function showIncomingChallengePopup(challenge) {
     if (!challenge || !challenge.id) return;
     state.friends.popupChallengeId = challenge.id;
-    state.friends.dismissedChallengeId = '';
     state.friends.challengePopupOpen = true;
     initAudio();
     try { playRoomEventChime('join'); } catch (e) {}
@@ -2188,9 +2187,10 @@ function ordinalSuffix(n) {
         state.friends.challengePopupOpen = false;
         state.friends.popupChallengeId = '';
         state.friends.dismissedChallengeId = challenge.id;
+        try { localStorage.setItem('fa_omok_dismissed_challenge_id', challenge.id); } catch (e) {}
         try {
-          if (challenge && challenge.id) {
-            const ref = db.ref('friendChallenges/' + challenge.id);
+          if (challenge && challenge.id && state.profile?.id && window.firebase && firebase.database) {
+            const ref = firebase.database().ref('omokFriendChallenges/' + state.profile.id + '/' + challenge.id);
             await ref.update({ status: 'declined', declinedAt: Date.now() });
           }
         } catch(e) {}
@@ -2229,6 +2229,7 @@ function ordinalSuffix(n) {
         }
         if (dismissedId && !dismissedStillExists) {
           state.friends.dismissedChallengeId = '';
+          try { localStorage.removeItem('fa_omok_dismissed_challenge_id'); } catch (e) {}
         }
         state.friends.incoming = pending;
         renderIncomingChallenges();
@@ -2272,6 +2273,8 @@ function ordinalSuffix(n) {
       if (!live || live.status !== 'pending' || (live.expiresAt && Number(live.expiresAt) <= Date.now())) {
         state.friends.popupChallengeId = '';
         state.friends.challengePopupOpen = false;
+        state.friends.dismissedChallengeId = '';
+        try { localStorage.removeItem('fa_omok_dismissed_challenge_id'); } catch (e) {}
         openNoticePopup('Challenge Removed', 'Challenge request has expired or was removed.', 'Confirm');
         return;
       }
@@ -2285,6 +2288,7 @@ function ordinalSuffix(n) {
       state.friends.popupChallengeId = '';
       state.friends.dismissedChallengeId = '';
       state.friends.challengePopupOpen = false;
+      try { localStorage.removeItem('fa_omok_dismissed_challenge_id'); } catch (e) {}
       switchMatchMode('friend');
       state.online.starWager = wager;
       if (ui.roomTitleInput) ui.roomTitleInput.value = `${live.challengerNickname || 'Friend'} Duel`;
@@ -2316,9 +2320,13 @@ function ordinalSuffix(n) {
         try { state.friends.profileHandle.off(); } catch {}
       }
       const ref = firebase.database().ref('omokFriendChallenges/' + state.profile.id);
-      ref.on('child_added', snap => {
+      ref.on('child_added', async snap => {
         const item = snap.val();
         if (!item || item.status !== 'room_ready' || item.targetId !== state.profile.id) return;
+        if (item.consumedByTarget) return;
+        try {
+          await snap.ref.update({ consumedByTarget: true, consumedAt: Date.now() });
+        } catch (e) {}
         if (ui.roomStatus) ui.roomStatus.textContent = `${item.targetNickname || 'Friend'} accepted. Joining challenge room...`;
         joinOnlineRoom(item.roomCode || '', item.roomId || '');
       });
