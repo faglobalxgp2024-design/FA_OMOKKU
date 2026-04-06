@@ -2184,10 +2184,16 @@ function ordinalSuffix(n) {
         state.friends.challengePopupOpen = false;
         await acceptFriendChallenge(challenge.id, true);
       },
-      onCancel: () => {
+      onCancel: async () => {
         state.friends.challengePopupOpen = false;
         state.friends.popupChallengeId = '';
         state.friends.dismissedChallengeId = challenge.id;
+        try {
+          if (challenge && challenge.id) {
+            const ref = db.ref('friendChallenges/' + challenge.id);
+            await ref.update({ status: 'declined', declinedAt: Date.now() });
+          }
+        } catch(e) {}
       },
       timeoutMs: Math.max(0, Number(challenge.expiresAt || 0) - Date.now())
     });
