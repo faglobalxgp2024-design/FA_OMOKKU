@@ -181,7 +181,10 @@ function ordinalSuffix(n) {
       incoming: [],
       profileHandle: null,
       challengeHandle: null,
-      lastLoadedAt: 0
+      lastLoadedAt: 0,
+      popupChallengeId: '',
+      challengePopupOpen: false,
+      dismissedChallengeId: ''
     },
     nextStarter: HUMAN
   };
@@ -2155,7 +2158,8 @@ function ordinalSuffix(n) {
             targetRank: friend?.rank || '1 Grade',
             stake: wager,
             status: 'pending',
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            expiresAt: Date.now() + (1000 * 120)
           });
           if (ui.roomStatus) ui.roomStatus.textContent = `${friend?.nickname || 'Friend'} challenge sent for ★ ${formatNumber(wager)}.`;
         } catch (e) {
@@ -2163,6 +2167,32 @@ function ordinalSuffix(n) {
         }
       }
     });
+  }
+
+  function showIncomingChallengePopup(challenge) {
+    if (!challenge || !challenge.id) return;
+    state.friends.popupChallengeId = challenge.id;
+    state.friends.dismissedChallengeId = '';
+    state.friends.challengePopupOpen = true;
+    initAudio();
+    try { playRoomEventChime('join'); } catch (e) {}
+    openConfirm({
+      title: 'Challenge Request',
+      text: `${challenge.challengerNickname || 'Friend'} [${challenge.challengerRank || '1 Grade'}]\nStake ★ ${formatNumber(challenge.stake || 0)}\n\nAccept this duel request?`,
+      confirmLabel: 'Accept',
+      onConfirm: async () => {
+        state.friends.challengePopupOpen = false;
+        await acceptFriendChallenge(challenge.id, true);
+      },
+      onCancel: () => {
+        state.friends.challengePopupOpen = false;
+        state.friends.popupChallengeId = '';
+        state.friends.dismissedChallengeId = challenge.id;
+      },
+      timeoutMs: Math.max(0, Number(challenge.expiresAt || 0) - Date.now())
+    });
+    const cancel = ui.root.querySelector('#fa-confirm-cancel');
+    if (cancel) cancel.textContent = 'Later';
   }
 
   async function subscribeFriendChallenges() {
@@ -2174,8 +2204,34 @@ function ordinalSuffix(n) {
       const ref = firebase.database().ref('omokFriendChallenges/' + state.profile.id);
       ref.on('value', snap => {
         const raw = snap.val() || {};
-        state.friends.incoming = Object.values(raw).filter(v => v && v.status === 'pending').sort((a,b) => Number(b.createdAt||0)-Number(a.createdAt||0));
+        const now = Date.now();
+        const pending = Object.values(raw)
+          .filter(v => v && v.status === 'pending' && (!v.expiresAt || Number(v.expiresAt) > now))
+          .sort((a,b) => Number(b.createdAt||0)-Number(a.createdAt||0));
+        const popupId = state.friends.popupChallengeId || '';
+        const dismissedId = state.friends.dismissedChallengeId || '';
+        const popupStillExists = popupId && pending.some(v => v.id === popupId);
+        const dismissedStillExists = dismissedId && pending.some(v => v.id === dismissedId);
+        if (popupId && !popupStillExists) {
+          const wasOpen = !!state.friends.challengePopupOpen;
+          state.friends.popupChallengeId = '';
+          state.friends.challengePopupOpen = false;
+          if (wasOpen) {
+            closeConfirm();
+            openNoticePopup('Challenge Removed', 'Challenge request has expired or was removed.', 'Confirm');
+          }
+        }
+        if (dismissedId && !dismissedStillExists) {
+          state.friends.dismissedChallengeId = '';
+        }
+        state.friends.incoming = pending;
         renderIncomingChallenges();
+        if (!state.friends.challengePopupOpen && pending.length) {
+          const nextChallenge = popupStillExists
+            ? pending.find(v => v.id === popupId)
+            : pending.find(v => v.id !== dismissedId);
+          if (nextChallenge) showIncomingChallengePopup(nextChallenge);
+        }
       });
       state.friends.challengeHandle = ref;
     } catch (e) {
@@ -2200,27 +2256,40 @@ function ordinalSuffix(n) {
     Array.from(ui.friendsList.querySelectorAll('[data-accept-challenge]')).forEach(btn => btn.addEventListener('click', () => acceptFriendChallenge(btn.getAttribute('data-accept-challenge'))));
   }
 
-  async function acceptFriendChallenge(challengeId) {
+  async function acceptFriendChallenge(challengeId, fromPopup = false) {
     const challenge = (state.friends.incoming || []).find(v => v.id === challengeId);
-    if (!challenge || !window.firebase || !firebase.database || !state.profile?.id) return;
-    const wager = normalizeStarWager(challenge.stake, STAR_WAGER_OPTIONS[0]);
-    if (!canAffordStars(wager)) {
-      if (ui.roomStatus) ui.roomStatus.textContent = `Not enough stars. Need ★ ${formatNumber(wager)}.`;
-      return;
-    }
+    if (!window.firebase || !firebase.database || !state.profile?.id) return;
+    const challengeRef = firebase.database().ref('omokFriendChallenges/' + state.profile.id + '/' + challengeId);
     try {
-      await firebase.database().ref('omokFriendChallenges/' + state.profile.id + '/' + challengeId).update({ status: 'accepted', acceptedAt: Date.now() });
+      const snap = await challengeRef.once('value');
+      const live = snap.val();
+      if (!live || live.status !== 'pending' || (live.expiresAt && Number(live.expiresAt) <= Date.now())) {
+        state.friends.popupChallengeId = '';
+        state.friends.challengePopupOpen = false;
+        openNoticePopup('Challenge Removed', 'Challenge request has expired or was removed.', 'Confirm');
+        return;
+      }
+      const wager = normalizeStarWager(live.stake, STAR_WAGER_OPTIONS[0]);
+      if (!canAffordStars(wager)) {
+        if (ui.roomStatus) ui.roomStatus.textContent = `Not enough stars. Need ★ ${formatNumber(wager)}.`;
+        openNoticePopup('Not Enough Stars', `You need ★ ${formatNumber(wager)} to accept this challenge.`, 'Confirm');
+        return;
+      }
+      await challengeRef.update({ status: 'accepted', acceptedAt: Date.now() });
+      state.friends.popupChallengeId = '';
+      state.friends.dismissedChallengeId = '';
+      state.friends.challengePopupOpen = false;
       switchMatchMode('friend');
       state.online.starWager = wager;
-      if (ui.roomTitleInput) ui.roomTitleInput.value = `${challenge.challengerNickname || 'Friend'} Duel`;
-      await createOnlineRoom(null, { roomTitle: `${challenge.challengerNickname || 'Friend'} Duel`, roomCode: '', starWager: wager, autoStart: false, inviteOnly: false });
+      if (ui.roomTitleInput) ui.roomTitleInput.value = `${live.challengerNickname || 'Friend'} Duel`;
+      await createOnlineRoom(null, { roomTitle: `${live.challengerNickname || 'Friend'} Duel`, roomCode: '', starWager: wager, autoStart: false, inviteOnly: false });
       const code = state.online.roomCode || '';
-      await firebase.database().ref('omokFriendChallenges/' + challenge.challengerId).push().set({
+      await firebase.database().ref('omokFriendChallenges/' + live.challengerId).push().set({
         id: uid(),
         challengerId: state.profile.id,
         challengerNickname: state.profile.nickname,
-        targetId: challenge.challengerId,
-        targetNickname: challenge.challengerNickname,
+        targetId: live.challengerId,
+        targetNickname: live.challengerNickname,
         stake: wager,
         status: 'room_ready',
         roomId: state.online.roomId,
@@ -2230,6 +2299,7 @@ function ordinalSuffix(n) {
       if (ui.roomStatus) ui.roomStatus.textContent = `Challenge accepted. Room created for ★ ${formatNumber(wager)}.`;
     } catch (e) {
       console.log('accept challenge ignored:', e);
+      if (fromPopup) openNoticePopup('Challenge Removed', 'Challenge request has expired or was removed.', 'Confirm');
     }
   }
 
