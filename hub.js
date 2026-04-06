@@ -183,7 +183,8 @@ function ordinalSuffix(n) {
       challengeHandle: null,
       lastLoadedAt: 0,
       popupChallengeId: '',
-      challengePopupOpen: false
+      challengePopupOpen: false,
+      dismissedChallengeId: ''
     },
     nextStarter: HUMAN
   };
@@ -2171,6 +2172,7 @@ function ordinalSuffix(n) {
   function showIncomingChallengePopup(challenge) {
     if (!challenge || !challenge.id) return;
     state.friends.popupChallengeId = challenge.id;
+    state.friends.dismissedChallengeId = '';
     state.friends.challengePopupOpen = true;
     initAudio();
     try { playRoomEventChime('join'); } catch (e) {}
@@ -2184,6 +2186,8 @@ function ordinalSuffix(n) {
       },
       onCancel: () => {
         state.friends.challengePopupOpen = false;
+        state.friends.popupChallengeId = '';
+        state.friends.dismissedChallengeId = challenge.id;
       },
       timeoutMs: Math.max(0, Number(challenge.expiresAt || 0) - Date.now())
     });
@@ -2205,7 +2209,9 @@ function ordinalSuffix(n) {
           .filter(v => v && v.status === 'pending' && (!v.expiresAt || Number(v.expiresAt) > now))
           .sort((a,b) => Number(b.createdAt||0)-Number(a.createdAt||0));
         const popupId = state.friends.popupChallengeId || '';
+        const dismissedId = state.friends.dismissedChallengeId || '';
         const popupStillExists = popupId && pending.some(v => v.id === popupId);
+        const dismissedStillExists = dismissedId && pending.some(v => v.id === dismissedId);
         if (popupId && !popupStillExists) {
           const wasOpen = !!state.friends.challengePopupOpen;
           state.friends.popupChallengeId = '';
@@ -2215,10 +2221,15 @@ function ordinalSuffix(n) {
             openNoticePopup('Challenge Removed', 'Challenge request has expired or was removed.', 'Confirm');
           }
         }
+        if (dismissedId && !dismissedStillExists) {
+          state.friends.dismissedChallengeId = '';
+        }
         state.friends.incoming = pending;
         renderIncomingChallenges();
         if (!state.friends.challengePopupOpen && pending.length) {
-          const nextChallenge = popupStillExists ? pending.find(v => v.id === popupId) : pending[0];
+          const nextChallenge = popupStillExists
+            ? pending.find(v => v.id === popupId)
+            : pending.find(v => v.id !== dismissedId);
           if (nextChallenge) showIncomingChallengePopup(nextChallenge);
         }
       });
@@ -2266,6 +2277,7 @@ function ordinalSuffix(n) {
       }
       await challengeRef.update({ status: 'accepted', acceptedAt: Date.now() });
       state.friends.popupChallengeId = '';
+      state.friends.dismissedChallengeId = '';
       state.friends.challengePopupOpen = false;
       switchMatchMode('friend');
       state.online.starWager = wager;
